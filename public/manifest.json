@@ -1,0 +1,17 @@
+{
+  "name": "Chess Puzzle Trainer",
+  "short_name": "Chess Puzzles",
+  "start_url": "/chess_puzzle_app/",
+  "scope": "/chess_puzzle_app/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
