@@ -5,21 +5,31 @@ import {
   initAuth, signOut, tryRestoreSession, hasStoredSession,
   trySilentSignIn, signIn, getUserSub, isSignedIn,
 } from './data/auth';
-import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting } from './data/api';
+import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, getSrsStates } from './data/api';
 import { setLoadingListener } from './data/loadingTracker';
+import { StockfishEngine } from './data/stockfish';
+import { analyzeGame } from './data/puzzleDetector';
 
 import LoadingOverlay from './components/LoadingOverlay';
 import ErrorDialog from './components/ErrorDialog';
 import SetupView from './views/SetupView';
 import GamesView from './views/GamesView';
 import SettingsView from './views/SettingsView';
+import PuzzlesView from './views/PuzzlesView';
 
-// Nav tab icons (inline SVG for zero dependencies)
 function IconGames() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="3" width="20" height="14" rx="2"/>
       <path d="M8 21h8M12 17v4"/>
+    </svg>
+  );
+}
+
+function IconPuzzles() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
     </svg>
   );
 }
@@ -40,7 +50,7 @@ function storageKey(suffix) {
 export default function App() {
   const [authReady, setAuthReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-  const [setupPhase, setSetupPhase] = useState(null); // null | 'sheet' | 'username'
+  const [setupPhase, setSetupPhase] = useState(null);
   const [username, setUsername] = useState('');
   const [sheetId, setLocalSheetId] = useState('');
   const [activeTab, setActiveTab] = useState('games');
@@ -50,6 +60,12 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(
     () => localStorage.getItem('chess_puzzles_darkMode') === 'true'
   );
+
+  // Analysis state: { [gameId]: { status, progress, candidates, errorMsg } }
+  const [analysisState, setAnalysisState] = useState({});
+  // Saved puzzles and SRS from persistent store
+  const [puzzles, setPuzzles] = useState([]);
+  const [srsStates, setSrsStatesData] = useState([]);
 
   const pendingSheetIdRef = useRef(null);
 
@@ -97,13 +113,8 @@ export default function App() {
 
   async function onSignIn() {
     setSignedIn(true);
-
     const storedSheetId = localStorage.getItem(storageKey('sheet'));
-    if (!storedSheetId) {
-      setSetupPhase('sheet');
-      return;
-    }
-
+    if (!storedSheetId) { setSetupPhase('sheet'); return; }
     const storedUsername = localStorage.getItem(storageKey('username'));
     if (!storedUsername) {
       pendingSheetIdRef.current = storedSheetId;
@@ -111,7 +122,6 @@ export default function App() {
       setSetupPhase('username');
       return;
     }
-
     await loadApp(storedSheetId, storedUsername);
   }
 
@@ -120,6 +130,14 @@ export default function App() {
     setSheetId(id);
     setLocalSheetId(id);
     setUsername(uname);
+    // Load persisted puzzles and SRS data
+    try {
+      const [p, s] = await Promise.all([getPuzzles(), getSrsStates()]);
+      setPuzzles(p);
+      setSrsStatesData(s);
+    } catch {
+      // Non-fatal: puzzles just start empty
+    }
   }
 
   function handleSheetReady(id) {
@@ -146,7 +164,118 @@ export default function App() {
     setUsername('');
     setLocalSheetId('');
     setActiveTab('games');
+    setGames(null);
+    setAnalysisState({});
+    setPuzzles([]);
+    setSrsStatesData([]);
   }
+
+  // Start analysis queue for selected game IDs
+  async function handleAnalyzeGames(gameIds) {
+    if (!games) return;
+
+    // Mark all as queued
+    setAnalysisState(prev => {
+      const next = { ...prev };
+      for (const id of gameIds) next[id] = { status: 'queued', progress: null, candidates: [], errorMsg: null };
+      return next;
+    });
+
+    const engine = new StockfishEngine();
+    try {
+      await engine.init();
+    } catch (e) {
+      // If engine fails to init, mark all as error
+      setAnalysisState(prev => {
+        const next = { ...prev };
+        for (const id of gameIds) next[id] = { status: 'error', progress: null, candidates: [], errorMsg: 'Failed to start Stockfish' };
+        return next;
+      });
+      return;
+    }
+
+    for (const gameId of gameIds) {
+      const game = games.find(g => g.id === gameId);
+      if (!game) continue;
+
+      setAnalysisState(prev => ({
+        ...prev,
+        [gameId]: { ...prev[gameId], status: 'analyzing' },
+      }));
+
+      try {
+        const candidates = await analyzeGame(game, engine, (progress) => {
+          setAnalysisState(prev => ({
+            ...prev,
+            [gameId]: { ...prev[gameId], progress },
+          }));
+        });
+
+        setAnalysisState(prev => ({
+          ...prev,
+          [gameId]: { status: 'done', candidates, progress: null, errorMsg: null },
+        }));
+      } catch (e) {
+        setAnalysisState(prev => ({
+          ...prev,
+          [gameId]: { status: 'error', candidates: [], progress: null, errorMsg: e.message ?? 'Analysis failed' },
+        }));
+      }
+    }
+
+    engine.destroy();
+  }
+
+  // Approve a candidate → save as puzzle
+  async function handleApproveCandidate(candidate) {
+    try {
+      const newPuzzle = await addPuzzle({
+        gameUrl: candidate.gameUrl,
+        fen: candidate.fen,
+        playerColor: candidate.playerColor,
+        bestMove: candidate.bestMove,
+        bestLine: candidate.bestLine,
+        evalBefore: candidate.evalBefore,
+        evalAfter: candidate.evalAfter,
+        theme: candidate.theme,
+        createdAt: new Date().toISOString(),
+      });
+      setPuzzles(prev => [...prev, newPuzzle]);
+    } catch (e) {
+      console.error('Failed to save puzzle:', e);
+    }
+    // Remove candidate from analysis state
+    _removeCandidate(candidate);
+  }
+
+  // Dismiss a candidate
+  function handleDismissCandidate(candidate) {
+    _removeCandidate(candidate);
+  }
+
+  function _removeCandidate(candidate) {
+    setAnalysisState(prev => {
+      const next = { ...prev };
+      for (const gameId of Object.keys(next)) {
+        if (next[gameId].candidates) {
+          next[gameId] = {
+            ...next[gameId],
+            candidates: next[gameId].candidates.filter(
+              c => !(c.fen === candidate.fen && c.playerMove === candidate.playerMove)
+            ),
+          };
+        }
+      }
+      return next;
+    });
+  }
+
+  // Flatten all candidates from analysis state
+  const allCandidates = Object.values(analysisState)
+    .filter(s => s.status === 'done')
+    .flatMap(s => s.candidates ?? []);
+
+  const pendingCandidateCount = allCandidates.length;
 
   // Not signed in
   if (!signedIn || !authReady) {
@@ -192,6 +321,7 @@ export default function App() {
         <header className="app-header">
           <h1>
             {activeTab === 'games' && '♟ Games'}
+            {activeTab === 'puzzles' && 'Puzzles'}
             {activeTab === 'settings' && 'Settings'}
           </h1>
         </header>
@@ -203,6 +333,17 @@ export default function App() {
               onUsernameChange={handleUsernameChange}
               games={games}
               onGamesChange={setGames}
+              analysisState={analysisState}
+              onAnalyzeGames={handleAnalyzeGames}
+            />
+          )}
+          {activeTab === 'puzzles' && (
+            <PuzzlesView
+              candidates={allCandidates}
+              puzzles={puzzles}
+              srsStates={srsStates}
+              onApprove={handleApproveCandidate}
+              onDismiss={handleDismissCandidate}
             />
           )}
           {activeTab === 'settings' && (
@@ -224,6 +365,25 @@ export default function App() {
           >
             <IconGames />
             Games
+          </button>
+          <button
+            className={`nav-btn ${activeTab === 'puzzles' ? 'active' : ''}`}
+            onClick={() => setActiveTab('puzzles')}
+            style={{ position: 'relative' }}
+          >
+            <IconPuzzles />
+            Puzzles
+            {pendingCandidateCount > 0 && (
+              <span style={{
+                position: 'absolute', top: 6, right: '50%', transform: 'translateX(10px)',
+                background: 'var(--accent)', color: '#fff',
+                borderRadius: '50%', width: 16, height: 16,
+                fontSize: '0.6rem', fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {pendingCandidateCount > 9 ? '9+' : pendingCandidateCount}
+              </span>
+            )}
           </button>
           <button
             className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`}

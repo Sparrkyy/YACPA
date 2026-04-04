@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { getRecentGames } from '../data/chesscomApi';
 import GameCard from '../components/GameCard';
 
-export default function GamesView({ username, onUsernameChange, games, onGamesChange }) {
+export default function GamesView({ username, onUsernameChange, games, onGamesChange, analysisState, onAnalyzeGames }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selected, setSelected] = useState(new Set());
 
   async function handleLoad() {
     if (!username) return;
     setLoading(true);
     setError('');
     onGamesChange(null);
+    setSelected(new Set());
     try {
       const result = await getRecentGames(username);
       onGamesChange(result);
@@ -20,6 +22,55 @@ export default function GamesView({ username, onUsernameChange, games, onGamesCh
       setLoading(false);
     }
   }
+
+  function toggleSelect(gameId) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(gameId)) next.delete(gameId);
+      else next.add(gameId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (!games) return;
+    const analyzableIds = games
+      .filter(g => !analysisState[g.id] || analysisState[g.id].status === 'error')
+      .map(g => g.id);
+    if (selected.size === analyzableIds.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(analyzableIds));
+    }
+  }
+
+  function handleAnalyze() {
+    if (selected.size === 0) return;
+    onAnalyzeGames([...selected]);
+    setSelected(new Set());
+  }
+
+  const isAnalyzing = Object.values(analysisState).some(
+    s => s.status === 'queued' || s.status === 'analyzing'
+  );
+
+  function getStatusBadge(game) {
+    const state = analysisState[game.id];
+    if (!state) return null;
+    if (state.status === 'queued') return { badge: 'Queued…', type: 'idle' };
+    if (state.status === 'analyzing') {
+      const { current, total } = state.progress ?? {};
+      return { badge: current != null ? `Analyzing ${current}/${total}…` : 'Analyzing…', type: 'idle' };
+    }
+    if (state.status === 'done') {
+      const n = state.candidates?.length ?? 0;
+      return { badge: n > 0 ? `${n} candidate${n !== 1 ? 's' : ''} found` : 'No candidates', type: 'done' };
+    }
+    if (state.status === 'error') return { badge: `Error: ${state.errorMsg}`, type: 'error' };
+    return null;
+  }
+
+  const analyzableGames = games?.filter(g => !analysisState[g.id] || analysisState[g.id].status === 'error') ?? [];
 
   return (
     <div>
@@ -61,16 +112,51 @@ export default function GamesView({ username, onUsernameChange, games, onGamesCh
 
       {games !== null && games.length > 0 && (
         <div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 10 }}>
-            {games.length} recent game{games.length !== 1 ? 's' : ''}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              {games.length} recent game{games.length !== 1 ? 's' : ''}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {analyzableGames.length > 0 && (
+                <button
+                  onClick={toggleSelectAll}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.8rem', cursor: 'pointer', padding: '4px 8px' }}
+                >
+                  {selected.size === analyzableGames.length ? 'Deselect all' : 'Select all'}
+                </button>
+              )}
+              {selected.size > 0 && (
+                <button
+                  className="btn-accent"
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
+                  style={{ width: 'auto', padding: '6px 14px', fontSize: '0.8rem' }}
+                >
+                  Analyze {selected.size} game{selected.size !== 1 ? 's' : ''}
+                </button>
+              )}
+            </div>
           </div>
-          {games.map(game => (
-            <GameCard
-              key={game.id}
-              game={game}
-              onClick={() => {/* analysis coming soon */}}
-            />
-          ))}
+
+          {games.map(game => {
+            const statusInfo = getStatusBadge(game);
+            const isAnalyzed = analysisState[game.id]?.status === 'done' || analysisState[game.id]?.status === 'analyzing' || analysisState[game.id]?.status === 'queued';
+            return (
+              <GameCard
+                key={game.id}
+                game={game}
+                selectable={!isAnalyzed}
+                selected={selected.has(game.id)}
+                onSelect={(val) => {
+                  if (val) setSelected(prev => new Set([...prev, game.id]));
+                  else toggleSelect(game.id);
+                }}
+                statusBadge={statusInfo?.badge}
+                statusType={statusInfo?.type}
+                onClick={isAnalyzed ? undefined : null}
+              />
+            );
+          })}
         </div>
       )}
     </div>
