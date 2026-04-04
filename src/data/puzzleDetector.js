@@ -1,5 +1,14 @@
 // Analyzes a Chess.com game with Stockfish to find puzzle candidates
 // Uses Lichess win% formula to detect significant eval drops (blunders)
+//
+// TODO: Improve puzzle candidate detection algorithm:
+//   - Use multi-PV (multipv 3) to check if player's move was among top lines, not just #1
+//   - Filter out trivial recaptures and forced moves (only 1-2 legal responses)
+//   - Skip opening book moves (first ~10 moves or use an opening DB)
+//   - Consider checking Lichess cloud eval API first to skip redundant local analysis
+//   - Weight candidates by: how much the win% drop was, how tricky the best move is
+//   - De-duplicate near-identical positions across games (same FEN = same puzzle)
+//   - Add missed_win theme: player had a forced win but played something that let it slip
 
 import { Chess } from 'chess.js';
 

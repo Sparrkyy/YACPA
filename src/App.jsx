@@ -5,7 +5,8 @@ import {
   initAuth, signOut, tryRestoreSession, hasStoredSession,
   trySilentSignIn, signIn, getUserSub, isSignedIn,
 } from './data/auth';
-import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, getSrsStates } from './data/api';
+import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, getSrsStates, addSrsState, updateSrsState, addReview } from './data/api';
+import { computeNextSrs } from './data/srs';
 import { setLoadingListener } from './data/loadingTracker';
 import { StockfishEngine } from './data/stockfish';
 import { analyzeGame } from './data/puzzleDetector';
@@ -16,6 +17,7 @@ import SetupView from './views/SetupView';
 import GamesView from './views/GamesView';
 import SettingsView from './views/SettingsView';
 import PuzzlesView from './views/PuzzlesView';
+import PuzzleView from './views/PuzzleView';
 
 function IconGames() {
   return (
@@ -66,6 +68,8 @@ export default function App() {
   // Saved puzzles and SRS from persistent store
   const [puzzles, setPuzzles] = useState([]);
   const [srsStates, setSrsStatesData] = useState([]);
+  // Currently solving puzzle (full-screen overlay)
+  const [solvingPuzzle, setSolvingPuzzle] = useState(null);
 
   const pendingSheetIdRef = useRef(null);
 
@@ -253,6 +257,34 @@ export default function App() {
     _removeCandidate(candidate);
   }
 
+  // Rate a puzzle after solving — computes next SRS interval and persists
+  async function handleRatePuzzle(puzzle, srsState, quality) {
+    const next = computeNextSrs(srsState, quality);
+    try {
+      if (srsState?.id) {
+        await updateSrsState(srsState.id, next);
+        setSrsStatesData(prev => prev.map(s => s.id === srsState.id ? { ...s, ...next } : s));
+      } else {
+        const created = await addSrsState({
+          puzzleId: puzzle.id,
+          easeFactor: next.easeFactor,
+          interval: next.interval,
+          repetitions: next.repetitions,
+          nextReview: next.nextReview,
+        });
+        setSrsStatesData(prev => [...prev, created]);
+      }
+      await addReview({
+        puzzleId: puzzle.id,
+        result: quality >= 3 ? 'solved' : 'failed',
+        reviewedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error('Failed to save SRS:', e);
+    }
+    setSolvingPuzzle(null);
+  }
+
   function _removeCandidate(candidate) {
     setAnalysisState(prev => {
       const next = { ...prev };
@@ -269,13 +301,6 @@ export default function App() {
       return next;
     });
   }
-
-  // Flatten all candidates from analysis state
-  const allCandidates = Object.values(analysisState)
-    .filter(s => s.status === 'done')
-    .flatMap(s => s.candidates ?? []);
-
-  const pendingCandidateCount = allCandidates.length;
 
   // Not signed in
   if (!signedIn || !authReady) {
@@ -313,10 +338,24 @@ export default function App() {
     );
   }
 
+  const allCandidates = Object.values(analysisState)
+    .filter(s => s.status === 'done')
+    .flatMap(s => s.candidates ?? []);
+  const pendingCandidateCount = allCandidates.length;
+  const srsMap = Object.fromEntries(srsStates.map(s => [s.puzzleId, s]));
+
   // Main app
   return (
     <>
       <LoadingOverlay visible={loading} />
+      {solvingPuzzle && (
+        <PuzzleView
+          puzzle={solvingPuzzle}
+          srsState={srsMap[solvingPuzzle.id]}
+          onRate={handleRatePuzzle}
+          onBack={() => setSolvingPuzzle(null)}
+        />
+      )}
       <div className="app">
         <header className="app-header">
           <h1>
@@ -344,6 +383,7 @@ export default function App() {
               srsStates={srsStates}
               onApprove={handleApproveCandidate}
               onDismiss={handleDismissCandidate}
+              onSolvePuzzle={setSolvingPuzzle}
             />
           )}
           {activeTab === 'settings' && (

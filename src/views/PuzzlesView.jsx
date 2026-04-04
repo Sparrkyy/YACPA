@@ -88,21 +88,25 @@ function CandidateCard({ candidate, onApprove, onDismiss }) {
   );
 }
 
-function PuzzleCard({ puzzle, srsState }) {
+function PuzzleCard({ puzzle, srsState, onSolve }) {
   const boardSize = Math.min(120, (window.innerWidth - 80) / 2);
 
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 10,
-      overflow: 'hidden',
-      display: 'flex',
-      alignItems: 'center',
-      marginBottom: 10,
-      gap: 12,
-      padding: '10px',
-    }}>
+    <div
+      onClick={onSolve}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: 10,
+        gap: 12,
+        padding: '10px',
+        cursor: 'pointer',
+      }}
+    >
       <div style={{ flexShrink: 0 }}>
         <Chessboard options={{
           position: puzzle.fen,
@@ -131,7 +135,7 @@ function PuzzleCard({ puzzle, srsState }) {
   );
 }
 
-export default function PuzzlesView({ candidates, puzzles, srsStates, onApprove, onDismiss }) {
+export default function PuzzlesView({ candidates, puzzles, srsStates, onApprove, onDismiss, onSolvePuzzle }) {
   const srsMap = Object.fromEntries((srsStates ?? []).map(s => [s.puzzleId, s]));
   const newPuzzles = (puzzles ?? []).filter(p => !srsMap[p.id] || srsMap[p.id].repetitions === 0);
   const oldPuzzles = (puzzles ?? []).filter(p => srsMap[p.id]?.repetitions > 0)
@@ -174,7 +178,7 @@ export default function PuzzlesView({ candidates, puzzles, srsStates, onApprove,
             New — {newPuzzles.length} saved puzzle{newPuzzles.length !== 1 ? 's' : ''}
           </div>
           {newPuzzles.map(p => (
-            <PuzzleCard key={p.id} puzzle={p} srsState={srsMap[p.id]} />
+            <PuzzleCard key={p.id} puzzle={p} srsState={srsMap[p.id]} onSolve={() => onSolvePuzzle?.(p)} />
           ))}
         </section>
       )}
@@ -185,7 +189,7 @@ export default function PuzzlesView({ candidates, puzzles, srsStates, onApprove,
             Old — {oldPuzzles.length} drilled puzzle{oldPuzzles.length !== 1 ? 's' : ''}
           </div>
           {oldPuzzles.map(p => (
-            <PuzzleCard key={p.id} puzzle={p} srsState={srsMap[p.id]} />
+            <PuzzleCard key={p.id} puzzle={p} srsState={srsMap[p.id]} onSolve={() => onSolvePuzzle?.(p)} />
           ))}
         </section>
       )}
