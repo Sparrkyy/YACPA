@@ -187,3 +187,13 @@ iOS/Swift chess app — less directly useful since we're JS, but clean architect
 
 ## Git Commits
 Never include `Co-Authored-By` lines or any other mention of Claude/AI in commit messages.
+
+Always commit as the repo owner — set the following before every commit:
+```
+git -c user.name="Ethan Campbell-Hodges" -c user.email="ethancampbellhodges@gmail.com" commit ...
+```
+Or configure the repo-local git identity at the start of each session:
+```
+git config user.name "Ethan Campbell-Hodges"
+git config user.email "ethancampbellhodges@gmail.com"
+```
