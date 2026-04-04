@@ -69,7 +69,7 @@ export default function App() {
     if (DEV_MODE) {
       setAuthReady(true);
       setSignedIn(true);
-      loadApp('mock-sheet-id', 'hikaru');
+      loadApp('mock-sheet-id', 'sparrkyy1');
       return;
     }
 
