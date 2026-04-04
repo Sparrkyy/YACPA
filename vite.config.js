@@ -21,7 +21,22 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      manifest: false,
+      includeAssets: ['icon.svg'],
+      manifest: {
+        name: 'Chess Puzzle Trainer',
+        short_name: 'Chess Puzzles',
+        description: 'Turn your Chess.com mistakes into spaced-repetition puzzles',
+        start_url: '/YACPA/',
+        scope: '/YACPA/',
+        display: 'standalone',
+        background_color: '#1a1a2e',
+        theme_color: '#1a1a2e',
+        orientation: 'portrait',
+        icons: [
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+        ],
+      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,wasm}'],
       },
