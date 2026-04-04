@@ -1,3 +1,4 @@
+import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 
 const THEME_LABELS = {
@@ -12,11 +13,16 @@ const THEME_COLORS = {
   blunder: '#ffcc00',
 };
 
-function uciToSan(uci) {
-  if (!uci) return '?';
-  // Show UCI move nicely: e2e4 → e4, e7e8q → e8=Q
-  const promo = uci[4] ? `=${uci[4].toUpperCase()}` : '';
-  return uci.slice(2, 4) + promo;
+function uciToSan(uci, fen) {
+  if (!uci || !fen) return '?';
+  try {
+    const chess = new Chess();
+    chess.load(fen);
+    const move = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+    return move?.san ?? '?';
+  } catch {
+    return '?';
+  }
 }
 
 function CandidateCard({ candidate, onApprove, onDismiss }) {
@@ -62,7 +68,7 @@ function CandidateCard({ candidate, onApprove, onDismiss }) {
           </div>
           <div style={{ flex: 1, background: 'rgba(52,199,89,0.1)', borderRadius: 8, padding: '8px 10px' }}>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: 2 }}>Best move</div>
-            <div style={{ fontWeight: 700, color: '#34c759' }}>{uciToSan(candidate.bestMove)}</div>
+            <div style={{ fontWeight: 700, color: '#34c759' }}>{uciToSan(candidate.bestMove, candidate.fen)}</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
