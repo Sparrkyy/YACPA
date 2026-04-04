@@ -87,7 +87,20 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [sheetId, setLocalSheetId] = useState('');
   const [activeTab, setActiveTab] = useState('games');
-  const [games, setGames] = useState(null);
+  const [games, setGamesRaw] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey('games'));
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  function setGames(val) {
+    setGamesRaw(val);
+    try {
+      if (val == null) localStorage.removeItem(storageKey('games'));
+      else localStorage.setItem(storageKey('games'), JSON.stringify(val));
+    } catch {}
+  }
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [darkMode, setDarkMode] = useState(
@@ -197,12 +210,13 @@ export default function App() {
   }
 
   function handleSignOut() {
+    localStorage.removeItem(storageKey('games'));
     setSignedIn(false);
     setSetupPhase(null);
     setUsername('');
     setLocalSheetId('');
     setActiveTab('games');
-    setGames(null);
+    setGamesRaw(null);
     setAnalysisState({});
     setPuzzles([]);
     setSrsStatesData([]);
