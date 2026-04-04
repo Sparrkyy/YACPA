@@ -13,5 +13,5 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/chess_puzzle_app/',
+  base: '/YACPA/',
 })
