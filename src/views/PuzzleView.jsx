@@ -14,7 +14,7 @@ function uciToSquares(uci) {
   return { from: uci.slice(0, 2), to: uci.slice(2, 4) };
 }
 
-export default function PuzzleView({ puzzle, srsState, onRate, onBack }) {
+export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProgress }) {
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState('input'); // 'input' | 'correct' | 'incorrect'
   const [errorMsg, setErrorMsg] = useState('');
@@ -84,7 +84,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack }) {
         >
           ←
         </button>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: '1rem' }}>Find the best move</div>
           {srsState && (
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
@@ -92,6 +92,11 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack }) {
             </div>
           )}
         </div>
+        {drillProgress && (
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, flexShrink: 0 }}>
+            {drillProgress.completed + 1} / {drillProgress.total}
+          </div>
+        )}
       </div>
 
       {/* Board */}

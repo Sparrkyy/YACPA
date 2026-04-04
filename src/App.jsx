@@ -16,7 +16,8 @@ import ErrorDialog from './components/ErrorDialog';
 import SetupView from './views/SetupView';
 import GamesView from './views/GamesView';
 import SettingsView from './views/SettingsView';
-import PuzzlesView from './views/PuzzlesView';
+import ReviewView from './views/ReviewView';
+import DrillView from './views/DrillView';
 import PuzzleView from './views/PuzzleView';
 
 function IconGames() {
@@ -28,10 +29,19 @@ function IconGames() {
   );
 }
 
-function IconPuzzles() {
+function IconReview() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
+      <path d="M9 11l3 3L22 4"/>
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    </svg>
+  );
+}
+
+function IconDrill() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3"/>
     </svg>
   );
 }
@@ -42,6 +52,27 @@ function IconSettings() {
       <circle cx="12" cy="12" r="3"/>
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>
+  );
+}
+
+function DrillSummary({ stats, onDone }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 100,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: 32, textAlign: 'center', gap: 24,
+    }}>
+      <div style={{ fontSize: '3rem' }}>✓</div>
+      <div>
+        <div style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 8 }}>Session complete</div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+          You drilled {stats?.total ?? 0} puzzle{stats?.total !== 1 ? 's' : ''}
+        </div>
+      </div>
+      <button className="btn-accent" style={{ maxWidth: 280 }} onClick={onDone}>
+        Back to puzzles
+      </button>
+    </div>
   );
 }
 
@@ -70,6 +101,9 @@ export default function App() {
   const [srsStates, setSrsStatesData] = useState([]);
   // Currently solving puzzle (full-screen overlay)
   const [solvingPuzzle, setSolvingPuzzle] = useState(null);
+  // Drill session queue: null=inactive, []=done, [id,...]=active
+  const [drillQueue, setDrillQueue] = useState(null);
+  const [drillSessionStats, setDrillSessionStats] = useState(null);
 
   const pendingSheetIdRef = useRef(null);
 
@@ -257,6 +291,23 @@ export default function App() {
     _removeCandidate(candidate);
   }
 
+  // Start a drill session with all due puzzles
+  function handleStartDrill() {
+    const today = new Date().toISOString().slice(0, 10);
+    const due = puzzles.filter(p => {
+      const srs = srsMap[p.id];
+      return !srs || srs.nextReview <= today;
+    });
+    if (due.length === 0) return;
+    setDrillQueue(due.map(p => p.id));
+    setDrillSessionStats({ total: due.length, completed: 0 });
+  }
+
+  function handleEndDrillSession() {
+    setDrillQueue(null);
+    setDrillSessionStats(null);
+  }
+
   // Rate a puzzle after solving — computes next SRS interval and persists
   async function handleRatePuzzle(puzzle, srsState, quality) {
     const next = computeNextSrs(srsState, quality);
@@ -282,7 +333,12 @@ export default function App() {
     } catch (e) {
       console.error('Failed to save SRS:', e);
     }
-    setSolvingPuzzle(null);
+    if (drillQueue !== null) {
+      setDrillSessionStats(prev => ({ ...prev, completed: prev.completed + 1 }));
+      setDrillQueue(prev => prev.slice(1));
+    } else {
+      setSolvingPuzzle(null);
+    }
   }
 
   function _removeCandidate(candidate) {
@@ -348,7 +404,28 @@ export default function App() {
   return (
     <>
       <LoadingOverlay visible={loading} />
-      {solvingPuzzle && (
+
+      {/* Drill session overlay */}
+      {drillQueue !== null && (
+        drillQueue.length === 0
+          ? <DrillSummary stats={drillSessionStats} onDone={handleEndDrillSession} />
+          : (() => {
+              const cur = puzzles.find(p => p.id === drillQueue[0]);
+              return cur ? (
+                <PuzzleView
+                  key={drillQueue[0]}
+                  puzzle={cur}
+                  srsState={srsMap[cur.id]}
+                  onRate={handleRatePuzzle}
+                  onBack={handleEndDrillSession}
+                  drillProgress={drillSessionStats}
+                />
+              ) : null;
+            })()
+      )}
+
+      {/* Ad-hoc single puzzle */}
+      {drillQueue === null && solvingPuzzle && (
         <PuzzleView
           puzzle={solvingPuzzle}
           srsState={srsMap[solvingPuzzle.id]}
@@ -356,11 +433,13 @@ export default function App() {
           onBack={() => setSolvingPuzzle(null)}
         />
       )}
+
       <div className="app">
         <header className="app-header">
           <h1>
             {activeTab === 'games' && '♟ Games'}
-            {activeTab === 'puzzles' && 'Puzzles'}
+            {activeTab === 'review' && 'Review'}
+            {activeTab === 'drill' && 'Drill'}
             {activeTab === 'settings' && 'Settings'}
           </h1>
         </header>
@@ -376,14 +455,19 @@ export default function App() {
               onAnalyzeGames={handleAnalyzeGames}
             />
           )}
-          {activeTab === 'puzzles' && (
-            <PuzzlesView
+          {activeTab === 'review' && (
+            <ReviewView
               candidates={allCandidates}
-              puzzles={puzzles}
-              srsStates={srsStates}
               onApprove={handleApproveCandidate}
               onDismiss={handleDismissCandidate}
+            />
+          )}
+          {activeTab === 'drill' && (
+            <DrillView
+              puzzles={puzzles}
+              srsStates={srsStates}
               onSolvePuzzle={setSolvingPuzzle}
+              onStartDrill={handleStartDrill}
             />
           )}
           {activeTab === 'settings' && (
@@ -407,12 +491,12 @@ export default function App() {
             Games
           </button>
           <button
-            className={`nav-btn ${activeTab === 'puzzles' ? 'active' : ''}`}
-            onClick={() => setActiveTab('puzzles')}
+            className={`nav-btn ${activeTab === 'review' ? 'active' : ''}`}
+            onClick={() => setActiveTab('review')}
             style={{ position: 'relative' }}
           >
-            <IconPuzzles />
-            Puzzles
+            <IconReview />
+            Review
             {pendingCandidateCount > 0 && (
               <span style={{
                 position: 'absolute', top: 6, right: '50%', transform: 'translateX(10px)',
@@ -424,6 +508,13 @@ export default function App() {
                 {pendingCandidateCount > 9 ? '9+' : pendingCandidateCount}
               </span>
             )}
+          </button>
+          <button
+            className={`nav-btn ${activeTab === 'drill' ? 'active' : ''}`}
+            onClick={() => setActiveTab('drill')}
+          >
+            <IconDrill />
+            Drill
           </button>
           <button
             className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`}
