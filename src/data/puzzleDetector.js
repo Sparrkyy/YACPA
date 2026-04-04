@@ -5,7 +5,8 @@ import { Chess } from 'chess.js';
 
 // Lichess win% formula — converts centipawns to win probability (0–100)
 function winPct(cp) {
-  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+  const clamped = Math.max(-10000, Math.min(10000, cp));
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * clamped)) - 1);
 }
 
 function classifyTheme(drop, isMate) {
@@ -24,56 +25,47 @@ export async function analyzeGame(game, engine, onProgress) {
     throw new Error('Failed to parse PGN');
   }
 
+  // chess.js v1.x verbose history includes `before` and `after` FEN fields
+  // for each move — no need to manually replay the game
   const moves = chess.history({ verbose: true });
 
-  // Count total player moves upfront for accurate progress
-  const totalPlayerMoves = moves.filter((_, i) => {
-    const isWhiteMove = i % 2 === 0; // move 0 = white's first move
-    return isWhiteMove === game.playerIsWhite;
-  }).length;
+  const playerMoves = moves.filter(m => {
+    const side = m.before.split(' ')[1]; // 'w' or 'b' from the FEN
+    return (side === 'w') === game.playerIsWhite;
+  });
 
-  chess.reset();
   const candidates = [];
   let analyzed = 0;
 
-  for (let i = 0; i < moves.length; i++) {
-    const fenBefore = chess.fen();
-    const sideToMove = fenBefore.split(' ')[1]; // 'w' or 'b'
-    const isPlayerMove = (sideToMove === 'w') === game.playerIsWhite;
+  for (const move of playerMoves) {
+    const fenBefore = move.before;
+    const fenAfter = move.after;
 
-    if (isPlayerMove) {
-      const before = await engine.analyzePosition(fenBefore, 14);
+    const before = await engine.analyzePosition(fenBefore, 14);
+    const afterRaw = await engine.analyzePosition(fenAfter, 14);
+    const evalAfter = -afterRaw.eval; // negate — it's now opponent's turn
 
-      const playerMoveUci = moves[i].from + moves[i].to + (moves[i].promotion ?? '');
-      chess.move(moves[i].san);
+    const drop = winPct(before.eval) - winPct(evalAfter);
+    const playerMoveUci = move.from + move.to + (move.promotion ?? '');
 
-      const afterRaw = await engine.analyzePosition(chess.fen(), 14);
-      const evalAfter = -afterRaw.eval; // negate — it's now opponent's turn
-
-      const drop = winPct(before.eval) - winPct(evalAfter);
-
-      // Only flag if: big enough drop AND player didn't play the best move
-      if (drop > 10 && before.bestMove && before.bestMove !== playerMoveUci) {
-        candidates.push({
-          fen: fenBefore,
-          playerMove: playerMoveUci,
-          playerMoveSan: moves[i].san,
-          bestMove: before.bestMove,
-          bestLine: before.bestLine,
-          evalBefore: before.eval,
-          evalAfter,
-          winPctDrop: Math.round(drop),
-          playerColor: game.playerIsWhite ? 'white' : 'black',
-          theme: classifyTheme(drop, before.isMate),
-          gameUrl: game.url,
-        });
-      }
-
-      analyzed++;
-      onProgress({ current: analyzed, total: totalPlayerMoves || 1 });
-    } else {
-      chess.move(moves[i].san);
+    if (drop > 10 && before.bestMove && before.bestMove !== playerMoveUci) {
+      candidates.push({
+        fen: fenBefore,
+        playerMove: playerMoveUci,
+        playerMoveSan: move.san,
+        bestMove: before.bestMove,
+        bestLine: before.bestLine,
+        evalBefore: before.eval,
+        evalAfter,
+        winPctDrop: Math.round(drop),
+        playerColor: game.playerIsWhite ? 'white' : 'black',
+        theme: classifyTheme(drop, before.isMate),
+        gameUrl: game.url,
+      });
     }
+
+    analyzed++;
+    onProgress({ current: analyzed, total: playerMoves.length || 1 });
   }
 
   return candidates;
