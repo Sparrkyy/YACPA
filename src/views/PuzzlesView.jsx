@@ -46,12 +46,12 @@ function CandidateCard({ candidate, onApprove, onDismiss }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', padding: '0 12px' }}>
-        <Chessboard
-          position={candidate.fen}
-          boardOrientation={candidate.playerColor}
-          arePiecesDraggable={false}
-          boardWidth={boardSize}
-        />
+        <Chessboard options={{
+          position: candidate.fen,
+          boardOrientation: candidate.playerColor,
+          allowDragging: false,
+          boardStyle: { width: boardSize, maxWidth: '100%' },
+        }} />
       </div>
 
       <div style={{ padding: '12px' }}>
@@ -104,12 +104,12 @@ function PuzzleCard({ puzzle, srsState }) {
       padding: '10px',
     }}>
       <div style={{ flexShrink: 0 }}>
-        <Chessboard
-          position={puzzle.fen}
-          boardOrientation={puzzle.playerColor}
-          arePiecesDraggable={false}
-          boardWidth={boardSize}
-        />
+        <Chessboard options={{
+          position: puzzle.fen,
+          boardOrientation: puzzle.playerColor,
+          allowDragging: false,
+          boardStyle: { width: boardSize, maxWidth: '100%' },
+        }} />
       </div>
       <div>
         <div style={{
