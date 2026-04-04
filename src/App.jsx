@@ -87,12 +87,7 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [sheetId, setLocalSheetId] = useState('');
   const [activeTab, setActiveTab] = useState('games');
-  const [games, setGamesRaw] = useState(() => {
-    try {
-      const saved = localStorage.getItem(storageKey('games'));
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
+  const [games, setGamesRaw] = useState(null);
 
   function setGames(val) {
     setGamesRaw(val);
@@ -181,6 +176,11 @@ export default function App() {
     setSheetId(id);
     setLocalSheetId(id);
     setUsername(uname);
+    // Restore persisted games (auth is resolved here so storageKey is correct)
+    try {
+      const saved = localStorage.getItem(storageKey('games'));
+      if (saved) setGamesRaw(JSON.parse(saved));
+    } catch {}
     // Load persisted puzzles and SRS data
     try {
       const [p, s] = await Promise.all([getPuzzles(), getSrsStates()]);
