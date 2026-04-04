@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { getRecentGames } from '../data/chesscomApi';
 import GameCard from '../components/GameCard';
 
-export default function GamesView({ username, onUsernameChange }) {
-  const [games, setGames] = useState(null);
+export default function GamesView({ username, onUsernameChange, games, onGamesChange }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -11,10 +10,10 @@ export default function GamesView({ username, onUsernameChange }) {
     if (!username) return;
     setLoading(true);
     setError('');
-    setGames(null);
+    onGamesChange(null);
     try {
       const result = await getRecentGames(username);
-      setGames(result);
+      onGamesChange(result);
     } catch (e) {
       setError(e.message ?? 'Failed to load games');
     } finally {

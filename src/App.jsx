@@ -44,6 +44,7 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [sheetId, setLocalSheetId] = useState('');
   const [activeTab, setActiveTab] = useState('games');
+  const [games, setGames] = useState(null);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [darkMode, setDarkMode] = useState(
@@ -200,6 +201,8 @@ export default function App() {
             <GamesView
               username={username}
               onUsernameChange={handleUsernameChange}
+              games={games}
+              onGamesChange={setGames}
             />
           )}
           {activeTab === 'settings' && (
