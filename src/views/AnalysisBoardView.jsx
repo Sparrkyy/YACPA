@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { StockfishEngine } from '../data/stockfish';
@@ -215,10 +216,10 @@ export default function AnalysisBoardView({ fen, playerColor, onClose }) {
     ? uciLineToSan(currentFen, engineResult.bestLine)
     : [];
 
-  return (
+  return createPortal((
     <div style={{
       position: 'fixed', inset: 0, background: 'var(--bg)',
-      zIndex: 200, display: 'flex', flexDirection: 'column',
+      zIndex: 9999, display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
       paddingTop: 'env(safe-area-inset-top)',
     }}>
@@ -317,5 +318,5 @@ export default function AnalysisBoardView({ fen, playerColor, onClose }) {
         )}
       </div>
     </div>
-  );
+  ), document.body);
 }
