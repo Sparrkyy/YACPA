@@ -13,6 +13,38 @@ const THEME_COLORS = {
   blunder: '#ffcc00',
 };
 
+function uciLineToSan(fen, bestLine) {
+  if (!fen || !bestLine) return [];
+  const chess = new Chess();
+  try { chess.load(fen); } catch { return []; }
+  const ucis = bestLine.trim().split(/\s+/).filter(Boolean);
+  const sans = [];
+  for (const uci of ucis) {
+    try {
+      const m = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+      if (!m) break;
+      sans.push(m.san);
+    } catch { break; }
+  }
+  return sans;
+}
+
+function formatLine(sans, fen) {
+  if (!sans.length) return '';
+  const parts = fen.split(' ');
+  const color = parts[1];
+  let moveNum = parseInt(parts[5] ?? '1', 10);
+  const tokens = [];
+  sans.forEach((san, i) => {
+    const isWhite = color === 'w' ? i % 2 === 0 : i % 2 === 1;
+    if (isWhite) tokens.push(`${moveNum}.`);
+    else if (i === 0) tokens.push(`${moveNum}...`);
+    tokens.push(san);
+    if (!isWhite) moveNum++;
+  });
+  return tokens.join(' ');
+}
+
 function uciToSan(uci, fen) {
   if (!uci || !fen) return '?';
   try {
@@ -71,6 +103,16 @@ function CandidateCard({ candidate, onApprove, onDismiss }) {
             <div style={{ fontWeight: 700, color: '#34c759' }}>{uciToSan(candidate.bestMove, candidate.fen)}</div>
           </div>
         </div>
+        {candidate.bestLine && (
+          <div style={{
+            fontSize: '0.78rem', color: 'var(--text-secondary)', fontFamily: 'monospace',
+            marginBottom: 10, padding: '8px 10px', background: 'var(--bg)',
+            borderRadius: 8, lineHeight: 1.7,
+          }}>
+            <span style={{ fontWeight: 700, color: 'var(--text)', fontFamily: 'inherit' }}>Best line: </span>
+            {formatLine(uciLineToSan(candidate.fen, candidate.bestLine), candidate.fen)}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             className="btn-accent"

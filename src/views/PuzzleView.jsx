@@ -14,20 +14,55 @@ function uciToSquares(uci) {
   return { from: uci.slice(0, 2), to: uci.slice(2, 4) };
 }
 
+function uciLineToSan(fen, bestLine) {
+  if (!fen || !bestLine) return [];
+  const chess = new Chess();
+  try { chess.load(fen); } catch { return []; }
+  const ucis = bestLine.trim().split(/\s+/).filter(Boolean);
+  const sans = [];
+  for (const uci of ucis) {
+    try {
+      const m = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+      if (!m) break;
+      sans.push(m.san);
+    } catch { break; }
+  }
+  return sans;
+}
+
+function formatLine(sans, fen) {
+  if (!sans.length) return '';
+  const parts = fen.split(' ');
+  const color = parts[1];
+  let moveNum = parseInt(parts[5] ?? '1', 10);
+  const tokens = [];
+  sans.forEach((san, i) => {
+    const isWhite = color === 'w' ? i % 2 === 0 : i % 2 === 1;
+    if (isWhite) tokens.push(`${moveNum}.`);
+    else if (i === 0) tokens.push(`${moveNum}...`);
+    tokens.push(san);
+    if (!isWhite) moveNum++;
+  });
+  return tokens.join(' ');
+}
+
 export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProgress }) {
   const [input, setInput] = useState('');
-  const [phase, setPhase] = useState('input'); // 'input' | 'correct' | 'incorrect'
+  const [phase, setPhase] = useState('input'); // 'input' | 'correct' | 'incorrect' | 'gave_up'
   const [errorMsg, setErrorMsg] = useState('');
 
   const boardSize = Math.min(360, window.innerWidth - 32);
 
-  // Build square styles to show the answer after reveal
+  // Highlight best move squares after reveal
   let squareStyles = {};
-  if (phase === 'correct' || phase === 'incorrect') {
+  if (phase !== 'input') {
     const { from, to } = uciToSquares(puzzle.bestMove);
     if (from) squareStyles[from] = { background: 'rgba(52,199,89,0.5)' };
     if (to) squareStyles[to] = { background: 'rgba(52,199,89,0.6)' };
   }
+
+  const bestLineSan = uciLineToSan(puzzle.fen, puzzle.bestLine);
+  const bestLineFormatted = formatLine(bestLineSan, puzzle.fen);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -55,7 +90,6 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
       return;
     }
 
-    // Compare LAN (long algebraic notation = UCI) to bestMove
     const playedUci = moveObj.from + moveObj.to + (moveObj.promotion ?? '');
     if (playedUci === puzzle.bestMove) {
       setPhase('correct');
@@ -110,10 +144,21 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
         }} />
       </div>
 
-      {/* Move to play indicator */}
+      {/* Move indicator */}
       <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
         {puzzle.playerColor === 'white' ? 'White' : 'Black'} to move
       </div>
+
+      {/* Best line — shown after answer is revealed */}
+      {phase !== 'input' && bestLineFormatted && (
+        <div style={{
+          padding: '0 16px 12px', fontSize: '0.8rem', color: 'var(--text-secondary)',
+          fontFamily: 'monospace', lineHeight: 1.7, flexShrink: 0,
+        }}>
+          <span style={{ fontWeight: 700, color: 'var(--text)', fontFamily: 'inherit' }}>Best line: </span>
+          {bestLineFormatted}
+        </div>
+      )}
 
       <div style={{ padding: '0 16px 16px', flexShrink: 0 }}>
         {phase === 'input' && (
@@ -144,8 +189,17 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
               </button>
             </div>
             {errorMsg && (
-              <div style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{errorMsg}</div>
+              <div style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 4 }}>{errorMsg}</div>
             )}
+            <div style={{ textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setPhase('gave_up')}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.85rem', cursor: 'pointer', padding: '8px' }}
+              >
+                Give up
+              </button>
+            </div>
           </form>
         )}
 
@@ -186,7 +240,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
               borderRadius: 10, padding: '12px 16px', marginBottom: 12,
               color: '#ff3b30', fontWeight: 700, fontSize: '0.95rem',
             }}>
-              Not quite — best move was highlighted in green
+              Not quite — best move highlighted in green
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, fontSize: '0.85rem' }}>
               <div style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 8, padding: '8px 10px' }}>
@@ -195,8 +249,38 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
               </div>
               <div style={{ flex: 1, background: 'rgba(52,199,89,0.08)', borderRadius: 8, padding: '8px 10px' }}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: 2 }}>Best move</div>
-                <div style={{ fontWeight: 700, color: '#34c759' }}>{puzzle.bestMove}</div>
+                <div style={{ fontWeight: 700, color: '#34c759' }}>{bestLineSan[0] ?? puzzle.bestMove}</div>
               </div>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12, textAlign: 'center' }}>
+              How hard was it once you saw it?
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {RATING_BUTTONS.filter(r => r.quality <= 3).map(({ label, quality, color }) => (
+                <button
+                  key={quality}
+                  onClick={() => onRate(puzzle, srsState, quality)}
+                  style={{
+                    padding: '12px', borderRadius: 10, border: 'none',
+                    background: color + '22', color: color,
+                    fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {phase === 'gave_up' && (
+          <div>
+            <div style={{
+              background: 'rgba(255,149,0,0.1)', border: '1px solid rgba(255,149,0,0.3)',
+              borderRadius: 10, padding: '12px 16px', marginBottom: 12,
+              color: '#ff9500', fontWeight: 700, fontSize: '0.95rem',
+            }}>
+              Best move highlighted in green
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 12, textAlign: 'center' }}>
               How hard was it once you saw it?
