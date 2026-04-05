@@ -142,7 +142,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
           boardOrientation: puzzle.playerColor,
           allowDragging: false,
           boardStyle: { width: boardSize, maxWidth: '100%' },
-          customSquareStyles: squareStyles,
+          squareStyles: squareStyles,
         }} />
       </div>
 

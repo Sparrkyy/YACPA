@@ -136,12 +136,13 @@ export default function AnalysisBoardView({ fen, playerColor, onClose }) {
     return true;
   }
 
-  function handlePieceDrop(src, tgt) {
+  function handlePieceDrop({ sourceSquare: src, targetSquare: tgt }) {
+    if (!tgt) return false;
     const isPromo = chess.get(src)?.type === 'p' && (tgt[1] === '8' || tgt[1] === '1');
     return applyMove(src, tgt, isPromo ? 'q' : undefined) !== false;
   }
 
-  function handleSquareClick(square, piece) {
+  function handleSquareClick({ square, piece }) {
     const turn = chess.turn(); // 'w' or 'b'
     const pieceColor = piece ? piece[0].toLowerCase() : null; // 'w' or 'b'
 
@@ -288,7 +289,7 @@ export default function AnalysisBoardView({ fen, playerColor, onClose }) {
           onSquareClick: handleSquareClick,
           allowDrawingArrows: true,
           boardStyle: { width: boardSize, maxWidth: '100%' },
-          customSquareStyles: squareStyles,
+          squareStyles: squareStyles,
         }} />
       </div>
 
