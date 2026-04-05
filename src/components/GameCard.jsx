@@ -1,4 +1,4 @@
-export default function GameCard({ game, onClick, selectable, selected, onSelect, statusBadge, statusType }) {
+export default function GameCard({ game, onClick, selectable, selected, onSelect, statusBadge, statusType, onReanalyze }) {
   const opponent = game.playerIsWhite ? game.black : game.white;
   const resultLabel = game.playerResult === 'win' ? 'W' : game.playerResult === 'loss' ? 'L' : 'D';
 
@@ -10,8 +10,8 @@ export default function GameCard({ game, onClick, selectable, selected, onSelect
   return (
     <div
       className={`game-card${selected ? ' selected' : ''}`}
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
-      onClick={selectable ? handleCheckbox : onClick}
+      style={{ cursor: selectable ? 'pointer' : 'default' }}
+      onClick={selectable ? handleCheckbox : undefined}
     >
       {selectable && (
         <div
@@ -51,7 +51,21 @@ export default function GameCard({ game, onClick, selectable, selected, onSelect
           </div>
         )}
       </div>
-      {!selectable && <div style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>›</div>}
+      {onReanalyze && (
+        <button
+          onClick={e => { e.stopPropagation(); onReanalyze(); }}
+          title="Re-analyze"
+          style={{
+            background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+            color: 'var(--text-secondary)', cursor: 'pointer',
+            padding: '4px 8px', fontSize: '0.9rem', flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          ↺
+        </button>
+      )}
+      {!selectable && !onReanalyze && <div style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>›</div>}
     </div>
   );
 }

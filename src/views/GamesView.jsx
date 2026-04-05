@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { getRecentGames } from '../data/chesscomApi';
 import GameCard from '../components/GameCard';
 
-export default function GamesView({ username, onUsernameChange, games, onGamesChange, analysisState, onAnalyzeGames }) {
+export default function GamesView({ username, onUsernameChange, games, onGamesChange, analysisState, onAnalyzeGames, onClearAnalysis }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(new Set());
@@ -153,7 +153,7 @@ export default function GamesView({ username, onUsernameChange, games, onGamesCh
                 }}
                 statusBadge={statusInfo?.badge}
                 statusType={statusInfo?.type}
-                onClick={isAnalyzed ? undefined : null}
+                onReanalyze={analysisState[game.id]?.status === 'done' ? () => onClearAnalysis(game.id) : undefined}
               />
             );
           })}

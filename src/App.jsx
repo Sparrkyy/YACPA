@@ -252,6 +252,16 @@ export default function App() {
     } catch {}
   }
 
+  // Clear analysis state for a game so it can be re-analyzed
+  function handleClearAnalysis(gameId) {
+    setAnalysisState(prev => {
+      const next = { ...prev };
+      delete next[gameId];
+      persistAnalyzed(next);
+      return next;
+    });
+  }
+
   // Start analysis queue for selected game IDs
   async function handleAnalyzeGames(gameIds) {
     if (!games) return;
@@ -520,6 +530,7 @@ export default function App() {
               onGamesChange={handleGamesChange}
               analysisState={analysisState}
               onAnalyzeGames={handleAnalyzeGames}
+              onClearAnalysis={handleClearAnalysis}
             />
           )}
           {activeTab === 'review' && (
