@@ -77,6 +77,7 @@ function formatGame(data, viewerUsername) {
     date: data.end_time
       ? new Date(data.end_time * 1000).toLocaleDateString()
       : '',
+    endTime: data.end_time ?? 0,
     movesNb: movesNb * 2,
     url: data.url ?? '',
   };

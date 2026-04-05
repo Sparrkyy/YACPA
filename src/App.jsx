@@ -171,11 +171,15 @@ export default function App() {
     setSheetId(id);
     setLocalSheetId(id);
     setUsername(uname);
-    // Restore persisted analyzed games and their analysis state
+    // Restore recent games cache and analysis state
     try {
-      const savedGames = localStorage.getItem(storageKey('analyzed_games'));
+      localStorage.removeItem(storageKey('analyzed_games')); // migrate: delete old unbounded key
+      const savedCache = localStorage.getItem(storageKey('recent_games'));
       const savedState = localStorage.getItem(storageKey('analysis_state'));
-      if (savedGames) setGamesRaw(JSON.parse(savedGames));
+      if (savedCache) {
+        const { games: cachedGames } = JSON.parse(savedCache);
+        if (Array.isArray(cachedGames)) setGamesRaw(cachedGames);
+      }
       if (savedState) setAnalysisState(JSON.parse(savedState));
     } catch {}
     // Load persisted puzzles and SRS data
@@ -207,9 +211,10 @@ export default function App() {
   }
 
   function handleSignOut() {
-    localStorage.removeItem(storageKey('analyzed_games'));
+    localStorage.removeItem(storageKey('recent_games'));
     localStorage.removeItem(storageKey('analysis_state'));
-    localStorage.removeItem(storageKey('games')); // clean up old key
+    localStorage.removeItem(storageKey('analyzed_games')); // legacy cleanup
+    localStorage.removeItem(storageKey('games'));           // even older legacy key
     setSignedIn(false);
     setSetupPhase(null);
     setUsername('');
@@ -221,20 +226,20 @@ export default function App() {
     setSrsStatesData([]);
   }
 
-  // Merge new games with persisted analyzed ones, deduplicating by ID
+  // Cache fresh games sorted by date; replaces the old merge-with-analyzed logic
   function handleGamesChange(newGames) {
     if (!newGames) { setGamesRaw(null); return; }
-    const analyzedIds = new Set(
-      Object.entries(analysisState)
-        .filter(([, v]) => v.status === 'done')
-        .map(([id]) => id)
-    );
-    const analyzedGames = (games ?? []).filter(g => analyzedIds.has(g.id));
-    const freshGames = newGames.filter(g => !analyzedIds.has(g.id));
-    setGamesRaw([...analyzedGames, ...freshGames]);
+    const sorted = [...newGames].sort((a, b) => (b.endTime ?? 0) - (a.endTime ?? 0));
+    setGamesRaw(sorted);
+    try {
+      localStorage.setItem(
+        storageKey('recent_games'),
+        JSON.stringify({ games: sorted, fetchedAt: Date.now() })
+      );
+    } catch {}
   }
 
-  // Persist only analyzed games and their analysis state to localStorage
+  // Persist analysis state for completed games (not game objects — those live in recent_games cache)
   function persistAnalyzed(nextAnalysisState) {
     try {
       const doneIds = new Set(
@@ -242,9 +247,7 @@ export default function App() {
           .filter(([, v]) => v.status === 'done')
           .map(([id]) => id)
       );
-      const doneGames = (games ?? []).filter(g => doneIds.has(g.id));
       const doneState = Object.fromEntries([...doneIds].map(id => [id, nextAnalysisState[id]]));
-      localStorage.setItem(storageKey('analyzed_games'), JSON.stringify(doneGames));
       localStorage.setItem(storageKey('analysis_state'), JSON.stringify(doneState));
     } catch {}
   }
