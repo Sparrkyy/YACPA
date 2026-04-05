@@ -403,6 +403,7 @@ export default function App() {
           };
         }
       }
+      persistAnalyzed(next);
       return next;
     });
   }
