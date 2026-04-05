@@ -9,6 +9,79 @@ const RATING_BUTTONS = [
   { label: 'I see it now', quality: 1, color: '#ff3b30' },
 ];
 
+const KEYPAD_ROWS = [
+  ['K', 'Q', 'R', 'B', 'N'],
+  ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
+  ['1', '2', '3', '4', '5', '6', '7', '8'],
+  ['x', '+', 'O-O', 'O-O-O', '⌫', '✓'],
+];
+
+function ChessKeypad({ value, onChange, onSubmit, onGiveUp, errorMsg }) {
+  function handleKey(key) {
+    if (key === '⌫') { onChange(value.slice(0, -1)); return; }
+    if (key === '✓') { onSubmit(); return; }
+    onChange(value + key);
+  }
+  return (
+    <div style={{ padding: '0 16px 12px' }}>
+      {/* Move display */}
+      <div style={{
+        fontFamily: 'monospace', fontSize: '1.5rem', fontWeight: 700,
+        textAlign: 'center', letterSpacing: 3,
+        minHeight: 48, padding: '6px 0 2px',
+        color: errorMsg ? 'var(--danger)' : 'var(--text)',
+      }}>
+        {value || <span style={{ color: 'var(--text-secondary)', fontWeight: 400, fontSize: '0.95rem', letterSpacing: 0 }}>tap a key…</span>}
+      </div>
+      {errorMsg && (
+        <div style={{ color: 'var(--danger)', fontSize: '0.8rem', textAlign: 'center', marginBottom: 4 }}>
+          {errorMsg}
+        </div>
+      )}
+      {/* Key rows */}
+      {KEYPAD_ROWS.map((row, ri) => (
+        <div key={ri} style={{ display: 'flex', gap: 5, marginBottom: 5, justifyContent: 'center' }}>
+          {row.map(key => (
+            <button
+              key={key}
+              onPointerDown={e => { e.preventDefault(); handleKey(key); }}
+              style={{
+                flex: key === 'O-O-O' ? 2.2 : key === 'O-O' ? 1.6 : 1,
+                minWidth: 0,
+                padding: '11px 2px',
+                fontSize: key.length > 2 ? '0.68rem' : '0.95rem',
+                fontFamily: 'monospace',
+                fontWeight: 600,
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: key === '✓' ? 'var(--accent)' : key === '⌫' ? 'var(--surface2)' : 'var(--surface)',
+                color: key === '✓' ? '#fff' : 'var(--text)',
+                cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+                userSelect: 'none',
+              }}
+            >
+              {key}
+            </button>
+          ))}
+        </div>
+      ))}
+      {/* Give up */}
+      <button
+        onPointerDown={e => { e.preventDefault(); onGiveUp(); }}
+        style={{
+          width: '100%', marginTop: 4, padding: '10px',
+          fontSize: '0.85rem', border: '1px solid var(--border)', borderRadius: 8,
+          background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        Give up
+      </button>
+    </div>
+  );
+}
+
 function uciToSquares(uci) {
   if (!uci || uci.length < 4) return { from: null, to: null };
   return { from: uci.slice(0, 2), to: uci.slice(2, 4) };
@@ -64,8 +137,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
   const bestLineSan = uciLineToSan(puzzle.fen, puzzle.bestLine);
   const bestLineFormatted = formatLine(bestLineSan, puzzle.fen);
 
-  function handleSubmit(e) {
-    e.preventDefault();
+  function handleSubmit() {
     const trimmed = input.trim();
     if (!trimmed) return;
 
@@ -164,49 +236,17 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
         </div>
       )}
 
-      <div style={{ padding: '0 16px 16px' }}>
-        {phase === 'input' && (
-          <form onSubmit={handleSubmit}>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <input
-                type="text"
-                value={input}
-                onChange={e => { setInput(e.target.value); setErrorMsg(''); }}
-                placeholder="Type your move (e.g. Nf3, exd5)"
-                autoCapitalize="none"
-                autoCorrect="off"
-                autoComplete="off"
-                spellCheck={false}
-                style={{
-                  flex: 1, padding: '12px 14px', fontSize: '1rem',
-                  borderRadius: 10, border: `1.5px solid ${errorMsg ? 'var(--danger)' : 'var(--border)'}`,
-                  background: 'var(--surface)', color: 'var(--text)',
-                  outline: 'none',
-                }}
-              />
-              <button
-                type="submit"
-                className="btn-accent"
-                style={{ width: 'auto', padding: '12px 20px', fontSize: '0.95rem' }}
-              >
-                Check
-              </button>
-            </div>
-            {errorMsg && (
-              <div style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 4 }}>{errorMsg}</div>
-            )}
-            <div style={{ textAlign: 'center' }}>
-              <button
-                type="button"
-                onClick={() => setPhase('gave_up')}
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.85rem', cursor: 'pointer', padding: '8px' }}
-              >
-                Give up
-              </button>
-            </div>
-          </form>
-        )}
+      {phase === 'input' && (
+        <ChessKeypad
+          value={input}
+          onChange={v => { setInput(v); setErrorMsg(''); }}
+          onSubmit={handleSubmit}
+          onGiveUp={() => setPhase('gave_up')}
+          errorMsg={errorMsg}
+        />
+      )}
 
+      <div style={{ padding: '0 16px 16px' }}>
         {phase === 'correct' && (
           <div>
             <div style={{
