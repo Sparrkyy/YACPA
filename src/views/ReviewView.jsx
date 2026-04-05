@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
-import AnalysisBoardView from './AnalysisBoardView';
 
 const THEME_LABELS = {
   missed_mate: 'Missed mate',
@@ -59,9 +57,8 @@ function uciToSan(uci, fen) {
   }
 }
 
-function CandidateCard({ candidate, onApprove, onDismiss }) {
+function CandidateCard({ candidate, onApprove, onDismiss, onOpenAnalysis }) {
   const boardSize = Math.min(280, window.innerWidth - 48);
-  const [showAnalysis, setShowAnalysis] = useState(false);
 
   return (
     <div style={{
@@ -117,7 +114,7 @@ function CandidateCard({ candidate, onApprove, onDismiss }) {
           </div>
         )}
         <button
-          onClick={() => setShowAnalysis(true)}
+          onClick={() => onOpenAnalysis({ fen: candidate.fen, playerColor: candidate.playerColor, bestLine: candidate.bestLine })}
           style={{
             width: '100%', padding: '8px', fontSize: '0.85rem',
             border: '1px solid var(--border)', borderRadius: 8,
@@ -126,15 +123,6 @@ function CandidateCard({ candidate, onApprove, onDismiss }) {
         >
           Analyze position
         </button>
-
-        {showAnalysis && (
-          <AnalysisBoardView
-            fen={candidate.fen}
-            playerColor={candidate.playerColor}
-            bestLine={candidate.bestLine}
-            onClose={() => setShowAnalysis(false)}
-          />
-        )}
 
         <div style={{ display: 'flex', gap: 8 }}>
           <button
@@ -159,7 +147,7 @@ function CandidateCard({ candidate, onApprove, onDismiss }) {
   );
 }
 
-export default function ReviewView({ candidates, onApprove, onDismiss }) {
+export default function ReviewView({ candidates, onApprove, onDismiss, onOpenAnalysis }) {
   if (!candidates || candidates.length === 0) {
     return (
       <div className="empty-state">
@@ -180,6 +168,7 @@ export default function ReviewView({ candidates, onApprove, onDismiss }) {
           candidate={c}
           onApprove={onApprove}
           onDismiss={onDismiss}
+          onOpenAnalysis={onOpenAnalysis}
         />
       ))}
     </div>

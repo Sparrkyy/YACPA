@@ -19,6 +19,7 @@ import SettingsView from './views/SettingsView';
 import ReviewView from './views/ReviewView';
 import DrillView from './views/DrillView';
 import PuzzleView from './views/PuzzleView';
+import AnalysisBoardView from './views/AnalysisBoardView';
 
 function IconGames() {
   return (
@@ -101,6 +102,8 @@ export default function App() {
   const [srsStates, setSrsStatesData] = useState([]);
   // Currently solving puzzle (full-screen overlay)
   const [solvingPuzzle, setSolvingPuzzle] = useState(null);
+  // Analysis board overlay (lifted here so it escapes app-content overflow context)
+  const [analysisBoard, setAnalysisBoard] = useState(null); // { fen, playerColor, bestLine }
   // Drill session queue: null=inactive, []=done, [id,...]=active
   const [drillQueue, setDrillQueue] = useState(null);
   const [drillSessionStats, setDrillSessionStats] = useState(null);
@@ -458,6 +461,7 @@ export default function App() {
                   onRate={handleRatePuzzle}
                   onBack={handleEndDrillSession}
                   drillProgress={drillSessionStats}
+                  onOpenAnalysis={setAnalysisBoard}
                 />
               ) : null;
             })()
@@ -470,6 +474,17 @@ export default function App() {
           srsState={srsMap[solvingPuzzle.id]}
           onRate={handleRatePuzzle}
           onBack={() => setSolvingPuzzle(null)}
+          onOpenAnalysis={setAnalysisBoard}
+        />
+      )}
+
+      {/* Analysis board — rendered here (outside app-content) so position:fixed works on iOS */}
+      {analysisBoard && (
+        <AnalysisBoardView
+          fen={analysisBoard.fen}
+          playerColor={analysisBoard.playerColor}
+          bestLine={analysisBoard.bestLine}
+          onClose={() => setAnalysisBoard(null)}
         />
       )}
 
@@ -499,6 +514,7 @@ export default function App() {
               candidates={allCandidates}
               onApprove={handleApproveCandidate}
               onDismiss={handleDismissCandidate}
+              onOpenAnalysis={setAnalysisBoard}
             />
           )}
           {activeTab === 'drill' && (

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
-import AnalysisBoardView from './AnalysisBoardView';
 
 const RATING_BUTTONS = [
   { label: 'Too easy', quality: 5, color: '#34c759' },
@@ -47,11 +46,10 @@ function formatLine(sans, fen) {
   return tokens.join(' ');
 }
 
-export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProgress }) {
+export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProgress, onOpenAnalysis }) {
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState('input'); // 'input' | 'correct' | 'incorrect' | 'gave_up'
   const [errorMsg, setErrorMsg] = useState('');
-  const [showAnalysis, setShowAnalysis] = useState(false);
 
   const boardSize = Math.min(360, window.innerWidth - 32, window.innerHeight * 0.42);
 
@@ -311,10 +309,10 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
       </div>
 
       {/* Analyze button — available after answer is revealed */}
-      {phase !== 'input' && (
+      {phase !== 'input' && onOpenAnalysis && (
         <div style={{ padding: '0 16px 24px', textAlign: 'center' }}>
           <button
-            onClick={() => setShowAnalysis(true)}
+            onClick={() => onOpenAnalysis({ fen: puzzle.fen, playerColor: puzzle.playerColor, bestLine: puzzle.bestLine })}
             style={{
               background: 'none', border: '1px solid var(--border)', borderRadius: 8,
               color: 'var(--text-secondary)', cursor: 'pointer', padding: '10px 20px',
@@ -327,15 +325,6 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
       )}
 
       </div>{/* end scrollable content */}
-
-      {showAnalysis && (
-        <AnalysisBoardView
-          fen={puzzle.fen}
-          playerColor={puzzle.playerColor}
-          bestLine={puzzle.bestLine}
-          onClose={() => setShowAnalysis(false)}
-        />
-      )}
     </div>
   );
 }
