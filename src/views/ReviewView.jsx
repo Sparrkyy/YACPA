@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
+import AnalysisBoardView from './AnalysisBoardView';
 
 const THEME_LABELS = {
   missed_mate: 'Missed mate',
@@ -59,6 +61,7 @@ function uciToSan(uci, fen) {
 
 function CandidateCard({ candidate, onApprove, onDismiss }) {
   const boardSize = Math.min(280, window.innerWidth - 48);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   return (
     <div style={{
@@ -113,6 +116,26 @@ function CandidateCard({ candidate, onApprove, onDismiss }) {
             {formatLine(uciLineToSan(candidate.fen, candidate.bestLine), candidate.fen)}
           </div>
         )}
+        <button
+          onClick={() => setShowAnalysis(true)}
+          style={{
+            width: '100%', padding: '8px', fontSize: '0.85rem',
+            border: '1px solid var(--border)', borderRadius: 8,
+            background: 'transparent', color: 'var(--text)', cursor: 'pointer', marginBottom: 8,
+          }}
+        >
+          Analyze position
+        </button>
+
+        {showAnalysis && (
+          <AnalysisBoardView
+            fen={candidate.fen}
+            playerColor={candidate.playerColor}
+            bestLine={candidate.bestLine}
+            onClose={() => setShowAnalysis(false)}
+          />
+        )}
+
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             className="btn-accent"

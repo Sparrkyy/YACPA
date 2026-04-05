@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
+import AnalysisBoardView from './AnalysisBoardView';
 
 const RATING_BUTTONS = [
   { label: 'Too easy', quality: 5, color: '#34c759' },
@@ -50,6 +51,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState('input'); // 'input' | 'correct' | 'incorrect' | 'gave_up'
   const [errorMsg, setErrorMsg] = useState('');
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   const boardSize = Math.min(360, window.innerWidth - 32);
 
@@ -303,6 +305,31 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
           </div>
         )}
       </div>
+
+      {/* Analyze button — available after answer is revealed */}
+      {phase !== 'input' && (
+        <div style={{ padding: '0 16px 24px', textAlign: 'center', flexShrink: 0 }}>
+          <button
+            onClick={() => setShowAnalysis(true)}
+            style={{
+              background: 'none', border: '1px solid var(--border)', borderRadius: 8,
+              color: 'var(--text-secondary)', cursor: 'pointer', padding: '10px 20px',
+              fontSize: '0.85rem', width: '100%',
+            }}
+          >
+            Analyze position
+          </button>
+        </div>
+      )}
+
+      {showAnalysis && (
+        <AnalysisBoardView
+          fen={puzzle.fen}
+          playerColor={puzzle.playerColor}
+          bestLine={puzzle.bestLine}
+          onClose={() => setShowAnalysis(false)}
+        />
+      )}
     </div>
   );
 }
