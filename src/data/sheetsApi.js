@@ -106,10 +106,10 @@ async function _createNewSheet() {
 
   // Write headers for each tab
   await Promise.all([
-    fetch(`${BASE_SHEETS}/${id}/values/Puzzles!A1:J1?valueInputOption=RAW`, {
+    fetch(`${BASE_SHEETS}/${id}/values/Puzzles!A1:K1?valueInputOption=RAW`, {
       method: 'PUT',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [['id', 'gameUrl', 'fen', 'playerColor', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'theme', 'createdAt']] }),
+      body: JSON.stringify({ values: [['id', 'gameUrl', 'fen', 'playerColor', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'theme', 'createdAt', 'notes']] }),
     }),
     fetch(`${BASE_SHEETS}/${id}/values/Reviews!A1:D1?valueInputOption=RAW`, {
       method: 'PUT',
@@ -157,15 +157,16 @@ export function rowToPuzzle(row) {
     evalAfter: Number(row[7] ?? 0),
     theme: row[8] ?? '',
     createdAt: row[9] ?? '',
+    notes: row[10] ?? '',
   };
 }
 
 export function puzzleToRow(p) {
-  return [p.id, p.gameUrl, p.fen, p.playerColor, p.bestMove, p.bestLine, p.evalBefore, p.evalAfter, p.theme, p.createdAt];
+  return [p.id, p.gameUrl, p.fen, p.playerColor, p.bestMove, p.bestLine, p.evalBefore, p.evalAfter, p.theme, p.createdAt, p.notes ?? ''];
 }
 
 export async function getPuzzles() {
-  const data = await sheetsGet('/values/Puzzles!A:J', 'loading puzzles');
+  const data = await sheetsGet('/values/Puzzles!A:K', 'loading puzzles');
   const rows = data.values ?? [];
   return rows.slice(1).map(rowToPuzzle).filter(p => p.id);
 }
@@ -176,11 +177,25 @@ export async function addPuzzle(puzzle) {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const newPuzzle = { ...puzzle, id };
   await sheetsPost(
-    '/values/Puzzles!A:J:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+    '/values/Puzzles!A:K:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
     { values: [puzzleToRow(newPuzzle)] },
     'saving puzzle'
   );
   return newPuzzle;
+}
+
+export async function updatePuzzle(puzzleId, updates) {
+  const data = await sheetsGet('/values/Puzzles!A:K', 'updating puzzle');
+  const rows = data.values ?? [];
+  const rowIndex = rows.findIndex((r, i) => i > 0 && r[0] === puzzleId);
+  if (rowIndex === -1) return;
+  const merged = { ...rowToPuzzle(rows[rowIndex]), ...updates };
+  const sheetRow = rowIndex + 1;
+  await sheetsPut(
+    `/values/Puzzles!A${sheetRow}:K${sheetRow}?valueInputOption=RAW`,
+    { values: [puzzleToRow(merged)] },
+    'updating puzzle'
+  );
 }
 
 // --- SRS CRUD ---

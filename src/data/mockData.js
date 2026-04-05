@@ -9,7 +9,7 @@ const KEYS = {
 };
 
 const HEADERS = {
-  puzzles: ['id', 'gameUrl', 'fen', 'playerColor', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'theme', 'createdAt'],
+  puzzles: ['id', 'gameUrl', 'fen', 'playerColor', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'theme', 'createdAt', 'notes'],
   srs: ['id', 'puzzleId', 'easeFactor', 'interval', 'repetitions', 'nextReview'],
   reviews: ['id', 'puzzleId', 'result', 'reviewedAt'],
   settings: ['key', 'value'],
@@ -129,12 +129,23 @@ export function rowToPuzzle(row) {
     evalAfter: Number(row[7]),
     theme: row[8],
     createdAt: row[9],
+    notes: row[10] ?? '',
   };
 }
 
 export function puzzleToRow(p) {
   return [p.id, p.gameUrl, p.fen, p.playerColor, p.bestMove, p.bestLine,
-          p.evalBefore, p.evalAfter, p.theme, p.createdAt];
+          p.evalBefore, p.evalAfter, p.theme, p.createdAt, p.notes ?? ''];
+}
+
+export async function updatePuzzle(puzzleId, updates) {
+  await delay();
+  const rows = load(KEYS.puzzles);
+  const idx = rows.findIndex((r, i) => i > 0 && r[0] === puzzleId);
+  if (idx !== -1) {
+    rows[idx] = puzzleToRow({ ...rowToPuzzle(rows[idx]), ...updates });
+    save(KEYS.puzzles, rows);
+  }
 }
 
 export function rowToSrs(row) {

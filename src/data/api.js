@@ -14,6 +14,7 @@ export const {
   validateSheet,
   getPuzzles,
   addPuzzle,
+  updatePuzzle,
   getSrsStates,
   addSrsState,
   updateSrsState,

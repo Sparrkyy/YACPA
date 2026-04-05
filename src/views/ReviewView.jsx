@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 
@@ -59,6 +60,7 @@ function uciToSan(uci, fen) {
 
 function CandidateCard({ candidate, onApprove, onDismiss, onOpenAnalysis }) {
   const boardSize = Math.min(280, window.innerWidth - 48);
+  const [notes, setNotes] = useState('');
 
   return (
     <div style={{
@@ -124,10 +126,23 @@ function CandidateCard({ candidate, onApprove, onDismiss, onOpenAnalysis }) {
           Analyze position
         </button>
 
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Notes (optional) — why is this a good puzzle?"
+          rows={2}
+          style={{
+            width: '100%', resize: 'vertical', padding: '8px 10px', marginBottom: 8,
+            fontSize: '0.85rem', borderRadius: 8, border: '1px solid var(--border)',
+            background: 'var(--surface2)', color: 'var(--text)',
+            outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+          }}
+        />
+
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             className="btn-accent"
-            onClick={() => onApprove(candidate)}
+            onClick={() => onApprove(candidate, notes)}
             style={{ flex: 1, padding: '10px', fontSize: '0.9rem' }}
           >
             Save puzzle

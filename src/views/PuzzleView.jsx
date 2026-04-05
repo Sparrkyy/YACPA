@@ -119,10 +119,12 @@ function formatLine(sans, fen) {
   return tokens.join(' ');
 }
 
-export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProgress, onOpenAnalysis }) {
+export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProgress, onOpenAnalysis, onUpdateNotes }) {
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState('input'); // 'input' | 'correct' | 'incorrect' | 'gave_up'
   const [errorMsg, setErrorMsg] = useState('');
+  const [notes, setNotes] = useState(puzzle.notes ?? '');
+  const [notesSaved, setNotesSaved] = useState(false);
 
   const boardSize = Math.min(360, window.innerWidth - 32, window.innerHeight * 0.42);
 
@@ -347,6 +349,40 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
           </div>
         )}
       </div>
+
+      {/* Notes — shown after answer is revealed, pre-filled from puzzle.notes */}
+      {phase !== 'input' && onUpdateNotes && (
+        <div style={{ padding: '0 16px 12px' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+            Notes
+          </div>
+          <textarea
+            value={notes}
+            onChange={e => { setNotes(e.target.value); setNotesSaved(false); }}
+            placeholder="What did you learn? Why was this tricky?"
+            rows={2}
+            style={{
+              width: '100%', resize: 'vertical', padding: '8px 10px',
+              fontSize: '0.85rem', borderRadius: 8, border: '1px solid var(--border)',
+              background: 'var(--surface)', color: 'var(--text)',
+              outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+            }}
+          />
+          <button
+            onClick={async () => {
+              await onUpdateNotes(puzzle.id, notes);
+              setNotesSaved(true);
+            }}
+            style={{
+              marginTop: 6, padding: '6px 16px', fontSize: '0.8rem',
+              background: notesSaved ? 'var(--success)' : 'var(--accent)',
+              color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer',
+            }}
+          >
+            {notesSaved ? 'Saved ✓' : 'Save note'}
+          </button>
+        </div>
+      )}
 
       {/* Analyze button — available after answer is revealed */}
       {phase !== 'input' && onOpenAnalysis && (

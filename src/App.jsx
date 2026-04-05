@@ -5,7 +5,7 @@ import {
   initAuth, signOut, tryRestoreSession, hasStoredSession,
   trySilentSignIn, signIn, getUserSub, isSignedIn,
 } from './data/auth';
-import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, getSrsStates, addSrsState, updateSrsState, addReview } from './data/api';
+import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, updatePuzzle, getSrsStates, addSrsState, updateSrsState, addReview } from './data/api';
 import { computeNextSrs } from './data/srs';
 import { setLoadingListener } from './data/loadingTracker';
 import { StockfishEngine } from './data/stockfish';
@@ -306,8 +306,14 @@ export default function App() {
     engine.destroy();
   }
 
+  // Update notes on a saved puzzle
+  async function handleUpdatePuzzleNotes(puzzleId, notes) {
+    await updatePuzzle(puzzleId, { notes });
+    setPuzzles(prev => prev.map(p => p.id === puzzleId ? { ...p, notes } : p));
+  }
+
   // Approve a candidate → save as puzzle
-  async function handleApproveCandidate(candidate) {
+  async function handleApproveCandidate(candidate, notes = '') {
     try {
       const newPuzzle = await addPuzzle({
         gameUrl: candidate.gameUrl,
@@ -318,6 +324,7 @@ export default function App() {
         evalBefore: candidate.evalBefore,
         evalAfter: candidate.evalAfter,
         theme: candidate.theme,
+        notes,
         createdAt: new Date().toISOString(),
       });
       setPuzzles(prev => [...prev, newPuzzle]);
@@ -462,6 +469,7 @@ export default function App() {
                   onBack={handleEndDrillSession}
                   drillProgress={drillSessionStats}
                   onOpenAnalysis={setAnalysisBoard}
+                  onUpdateNotes={handleUpdatePuzzleNotes}
                 />
               ) : null;
             })()
@@ -475,6 +483,7 @@ export default function App() {
           onRate={handleRatePuzzle}
           onBack={() => setSolvingPuzzle(null)}
           onOpenAnalysis={setAnalysisBoard}
+          onUpdateNotes={handleUpdatePuzzleNotes}
         />
       )}
 
