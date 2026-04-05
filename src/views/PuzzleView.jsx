@@ -107,12 +107,13 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
       position: 'fixed', inset: 0, background: 'var(--bg)',
       zIndex: 100, display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
+      paddingTop: 'env(safe-area-inset-top)',
     }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '16px 16px 8px', borderBottom: '1px solid var(--border)',
-        flexShrink: 0,
+        flexShrink: 0, background: 'var(--surface)',
       }}>
         <button
           onClick={onBack}

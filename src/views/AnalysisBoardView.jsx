@@ -219,11 +219,14 @@ export default function AnalysisBoardView({ fen, playerColor, onClose }) {
     <div style={{
       position: 'fixed', inset: 0, background: 'var(--bg)',
       zIndex: 200, display: 'flex', flexDirection: 'column',
+      overflow: 'hidden',
+      paddingTop: 'env(safe-area-inset-top)',
     }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '12px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0,
+        background: 'var(--surface)',
       }}>
         <button
           onClick={onClose}
