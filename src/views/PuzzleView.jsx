@@ -53,7 +53,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
   const [errorMsg, setErrorMsg] = useState('');
   const [showAnalysis, setShowAnalysis] = useState(false);
 
-  const boardSize = Math.min(360, window.innerWidth - 32);
+  const boardSize = Math.min(360, window.innerWidth - 32, window.innerHeight * 0.42);
 
   // Highlight best move squares after reveal
   let squareStyles = {};
@@ -106,7 +106,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
     <div style={{
       position: 'fixed', inset: 0, background: 'var(--bg)',
       zIndex: 100, display: 'flex', flexDirection: 'column',
-      overflowY: 'auto',
+      overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{
@@ -135,8 +135,11 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
         )}
       </div>
 
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+
       {/* Board */}
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 16px 8px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 16px 8px' }}>
         <Chessboard options={{
           position: puzzle.fen,
           boardOrientation: puzzle.playerColor,
@@ -155,14 +158,14 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
       {phase !== 'input' && bestLineFormatted && (
         <div style={{
           padding: '0 16px 12px', fontSize: '0.8rem', color: 'var(--text-secondary)',
-          fontFamily: 'monospace', lineHeight: 1.7, flexShrink: 0,
+          fontFamily: 'monospace', lineHeight: 1.7,
         }}>
           <span style={{ fontWeight: 700, color: 'var(--text)', fontFamily: 'inherit' }}>Best line: </span>
           {bestLineFormatted}
         </div>
       )}
 
-      <div style={{ padding: '0 16px 16px', flexShrink: 0 }}>
+      <div style={{ padding: '0 16px 16px' }}>
         {phase === 'input' && (
           <form onSubmit={handleSubmit}>
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -308,7 +311,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
 
       {/* Analyze button — available after answer is revealed */}
       {phase !== 'input' && (
-        <div style={{ padding: '0 16px 24px', textAlign: 'center', flexShrink: 0 }}>
+        <div style={{ padding: '0 16px 24px', textAlign: 'center' }}>
           <button
             onClick={() => setShowAnalysis(true)}
             style={{
@@ -321,6 +324,8 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
           </button>
         </div>
       )}
+
+      </div>{/* end scrollable content */}
 
       {showAnalysis && (
         <AnalysisBoardView

@@ -58,7 +58,7 @@ function evalLabel(whiteEval, isMate) {
 // --- Component ---
 
 export default function AnalysisBoardView({ fen, playerColor, onClose }) {
-  const boardSize = Math.min(360, window.innerWidth - 32);
+  const boardSize = Math.min(360, window.innerWidth - 32, window.innerHeight * 0.42);
 
   // Chess instance — mutated in place
   const [chess] = useState(() => { const c = new Chess(); c.load(fen); return c; });
