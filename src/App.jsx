@@ -462,6 +462,11 @@ export default function App() {
     .flatMap(s => s.candidates ?? []);
   const pendingCandidateCount = allCandidates.length;
   const srsMap = Object.fromEntries(srsStates.map(s => [s.puzzleId, s]));
+  const today = new Date().toISOString().slice(0, 10);
+  const dueDrillCount = puzzles.filter(p => {
+    const srs = srsMap[p.id];
+    return !srs || srs.nextReview <= today;
+  }).length;
 
   // Main app
   return (
@@ -591,9 +596,21 @@ export default function App() {
           <button
             className={`nav-btn ${activeTab === 'drill' ? 'active' : ''}`}
             onClick={() => setActiveTab('drill')}
+            style={{ position: 'relative' }}
           >
             <IconDrill />
             Drill
+            {dueDrillCount > 0 && (
+              <span style={{
+                position: 'absolute', top: 6, right: '50%', transform: 'translateX(10px)',
+                background: 'var(--accent)', color: '#fff',
+                borderRadius: 99, minWidth: 16, height: 16, padding: '0 4px',
+                fontSize: '0.6rem', fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {dueDrillCount > 99 ? '99+' : dueDrillCount}
+              </span>
+            )}
           </button>
           <button
             className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`}
