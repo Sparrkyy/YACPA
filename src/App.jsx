@@ -5,7 +5,7 @@ import {
   initAuth, signOut, tryRestoreSession, hasStoredSession,
   trySilentSignIn, signIn, getUserSub, isSignedIn,
 } from './data/auth';
-import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, updatePuzzle, getSrsStates, addSrsState, updateSrsState, addReview } from './data/api';
+import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, updatePuzzle, getSrsStates, addSrsState, updateSrsState, addReview, addCandidates, updateCandidateDecision, ensureCandidatesSheet } from './data/api';
 import { computeNextSrs } from './data/srs';
 import { setLoadingListener } from './data/loadingTracker';
 import { StockfishEngine } from './data/stockfish';
@@ -201,6 +201,8 @@ export default function App() {
     } catch {
       // Non-fatal: puzzles just start empty
     }
+    // Ensure Candidates tab exists (no-op if already present)
+    ensureCandidatesSheet().catch(() => {});
   }
 
   function handleSheetReady(id) {
@@ -314,12 +316,17 @@ export default function App() {
       }));
 
       try {
-        const candidates = await analyzeGame(game, engine, (progress) => {
+        let candidates = await analyzeGame(game, engine, (progress) => {
           setAnalysisState(prev => ({
             ...prev,
             [gameId]: { ...prev[gameId], progress },
           }));
         });
+
+        // Persist all candidates to Sheets (fire-and-forget; non-fatal)
+        try {
+          candidates = await addCandidates(candidates);
+        } catch { /* non-fatal */ }
 
         setAnalysisState(prev => {
           const next = { ...prev, [gameId]: { status: 'done', candidates, progress: null, errorMsg: null } };
@@ -362,12 +369,14 @@ export default function App() {
     } catch (e) {
       console.error('Failed to save puzzle:', e);
     }
+    if (candidate.id) updateCandidateDecision(candidate.id, 'approved').catch(() => {});
     // Remove candidate from analysis state
     _removeCandidate(candidate);
   }
 
   // Dismiss a candidate
   function handleDismissCandidate(candidate) {
+    if (candidate.id) updateCandidateDecision(candidate.id, 'dismissed').catch(() => {});
     _removeCandidate(candidate);
   }
 

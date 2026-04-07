@@ -25,4 +25,7 @@ export const {
   puzzleToRow,
   rowToSrs,
   srsToRow,
+  addCandidates,
+  updateCandidateDecision,
+  ensureCandidatesSheet,
 } = api;

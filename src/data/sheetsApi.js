@@ -90,7 +90,7 @@ async function _createNewSheet() {
   const id = created.spreadsheetId;
   const defaultSheetId = created.sheets[0].properties.sheetId;
 
-  // Rename Sheet1 → Puzzles, add Reviews, SRS, Settings tabs
+  // Rename Sheet1 → Puzzles, add Reviews, SRS, Settings, Candidates tabs
   await fetch(`${BASE_SHEETS}/${id}:batchUpdate`, {
     method: 'POST',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
@@ -100,6 +100,7 @@ async function _createNewSheet() {
         { addSheet: { properties: { title: 'Reviews' } } },
         { addSheet: { properties: { title: 'SRS' } } },
         { addSheet: { properties: { title: 'Settings' } } },
+        { addSheet: { properties: { title: 'Candidates' } } },
       ],
     }),
   });
@@ -125,6 +126,11 @@ async function _createNewSheet() {
       method: 'PUT',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [['key', 'value']] }),
+    }),
+    fetch(`${BASE_SHEETS}/${id}/values/Candidates!A1:O1?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [['id', 'gameUrl', 'fen', 'playerColor', 'playerMove', 'playerMoveSan', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'winPctDrop', 'theme', 'decision', 'decidedAt', 'createdAt']] }),
     }),
   ]);
 
@@ -295,4 +301,81 @@ export async function setSetting(key, value) {
       'updating setting'
     );
   }
+}
+
+// --- Candidates CRUD ---
+
+const CANDIDATE_HEADERS = ['id', 'gameUrl', 'fen', 'playerColor', 'playerMove', 'playerMoveSan', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'winPctDrop', 'theme', 'decision', 'decidedAt', 'createdAt'];
+
+function candidateToRow(c) {
+  return [
+    c.id ?? '', c.gameUrl ?? '', c.fen ?? '', c.playerColor ?? '',
+    c.playerMove ?? '', c.playerMoveSan ?? '', c.bestMove ?? '', c.bestLine ?? '',
+    c.evalBefore ?? 0, c.evalAfter ?? 0, c.winPctDrop ?? 0, c.theme ?? '',
+    c.decision ?? '', c.decidedAt ?? '', c.createdAt ?? '',
+  ];
+}
+
+export async function addCandidates(candidates) {
+  if (!candidates.length) return [];
+  const createdAt = new Date().toISOString();
+  const withIds = candidates.map(c => ({
+    ...c,
+    id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    decision: '',
+    decidedAt: '',
+    createdAt,
+  }));
+  await sheetsPost(
+    '/values/Candidates!A:O:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+    { values: withIds.map(candidateToRow) },
+    'saving candidates'
+  );
+  return withIds;
+}
+
+export async function updateCandidateDecision(candidateId, decision) {
+  const data = await sheetsGet('/values/Candidates!A:O', 'updating candidate');
+  const rows = data.values ?? [];
+  const rowIndex = rows.findIndex((r, i) => i > 0 && r[0] === candidateId);
+  if (rowIndex === -1) return;
+  const sheetRow = rowIndex + 1;
+  // Only update columns M (decision) and N (decidedAt) — indices 12 and 13
+  const updated = [...rows[rowIndex]];
+  while (updated.length < 15) updated.push('');
+  updated[12] = decision;
+  updated[13] = new Date().toISOString();
+  await sheetsPut(
+    `/values/Candidates!A${sheetRow}:O${sheetRow}?valueInputOption=RAW`,
+    { values: [updated] },
+    'updating candidate decision'
+  );
+}
+
+// Ensure the Candidates tab exists; if not, create it with headers.
+// Safe to call on every app load — no-op if tab already present.
+export async function ensureCandidatesSheet() {
+  try {
+    const res = await fetch(
+      `${getBase()}/values/Candidates!A1`,
+      { headers: authHeaders() }
+    );
+    if (res.ok) return; // tab already exists
+    if (res.status !== 400 && res.status !== 404) return; // unexpected error — skip silently
+  } catch {
+    return;
+  }
+  // Tab missing — add it
+  try {
+    await fetch(`${getBase()}:batchUpdate`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: 'Candidates' } } }] }),
+    });
+    await sheetsPut(
+      '/values/Candidates!A1:O1?valueInputOption=RAW',
+      { values: [CANDIDATE_HEADERS] },
+      'creating candidates tab'
+    );
+  } catch { /* non-fatal */ }
 }

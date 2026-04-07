@@ -6,6 +6,7 @@ const KEYS = {
   srs: 'mock_srs',
   reviews: 'mock_reviews',
   settings: 'mock_settings',
+  candidates: 'mock_candidates',
 };
 
 const HEADERS = {
@@ -13,6 +14,7 @@ const HEADERS = {
   srs: ['id', 'puzzleId', 'easeFactor', 'interval', 'repetitions', 'nextReview'],
   reviews: ['id', 'puzzleId', 'result', 'reviewedAt'],
   settings: ['key', 'value'],
+  candidates: ['id', 'gameUrl', 'fen', 'playerColor', 'playerMove', 'playerMoveSan', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'winPctDrop', 'theme', 'decision', 'decidedAt', 'createdAt'],
 };
 
 function load(key) {
@@ -161,4 +163,42 @@ export function rowToSrs(row) {
 
 export function srsToRow(s) {
   return [s.id, s.puzzleId, s.easeFactor, s.interval, s.repetitions, s.nextReview];
+}
+
+// --- Candidates ---
+
+export async function addCandidates(candidates) {
+  await delay();
+  if (!candidates.length) return [];
+  const createdAt = new Date().toISOString();
+  const withIds = candidates.map(c => ({
+    ...c,
+    id: `candidate-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    decision: '',
+    decidedAt: '',
+    createdAt,
+  }));
+  const rows = load(KEYS.candidates);
+  for (const c of withIds) {
+    rows.push([c.id, c.gameUrl, c.fen, c.playerColor, c.playerMove, c.playerMoveSan,
+               c.bestMove, c.bestLine, c.evalBefore, c.evalAfter, c.winPctDrop,
+               c.theme, c.decision, c.decidedAt, c.createdAt]);
+  }
+  save(KEYS.candidates, rows);
+  return withIds;
+}
+
+export async function updateCandidateDecision(candidateId, decision) {
+  await delay();
+  const rows = load(KEYS.candidates);
+  const idx = rows.findIndex((r, i) => i > 0 && r[0] === candidateId);
+  if (idx !== -1) {
+    rows[idx][12] = decision;
+    rows[idx][13] = new Date().toISOString();
+    save(KEYS.candidates, rows);
+  }
+}
+
+export async function ensureCandidatesSheet() {
+  // No-op in mock mode — localStorage tables are lazily created by load()
 }
