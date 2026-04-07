@@ -1,5 +1,12 @@
 import { Chessboard } from 'react-chessboard';
 
+function dueLabel(nextReview, today) {
+  if (!nextReview || nextReview <= today) return 'Due now';
+  const days = Math.round((new Date(nextReview) - new Date(today)) / 86_400_000);
+  if (days === 1) return 'Due tomorrow';
+  return `Due in ${days} days`;
+}
+
 const THEME_LABELS = {
   missed_mate: 'Missed mate',
   missed_tactic: 'Missed tactic',
@@ -12,7 +19,7 @@ const THEME_COLORS = {
   blunder: '#ffcc00',
 };
 
-function PuzzleCard({ puzzle, srsState, onSolve }) {
+function PuzzleCard({ puzzle, srsState, onSolve, today }) {
   const boardSize = Math.min(100, (window.innerWidth - 80) / 2);
 
   return (
@@ -48,8 +55,8 @@ function PuzzleCard({ puzzle, srsState, onSolve }) {
         </div>
         {srsState ? (
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            <div>Next: {srsState.nextReview}</div>
-            <div>Ease: {srsState.easeFactor?.toFixed(1)}</div>
+            <div>{dueLabel(srsState.nextReview, today)}</div>
+            <div>Rep {srsState.repetitions}</div>
           </div>
         ) : (
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Ready to drill</div>
@@ -72,7 +79,10 @@ export default function DrillView({ puzzles, srsStates, onSolvePuzzle, onStartDr
   const oldPuzzles = (puzzles ?? []).filter(p => srsMap[p.id]?.repetitions > 0)
     .sort((a, b) => (srsMap[a.id]?.nextReview ?? '') > (srsMap[b.id]?.nextReview ?? '') ? 1 : -1);
 
-  if ((puzzles ?? []).length === 0) {
+  const totalPuzzles = (puzzles ?? []).length;
+  const drilledCount = (srsStates ?? []).filter(s => s.repetitions > 0).length;
+
+  if (totalPuzzles === 0) {
     return (
       <div className="empty-state">
         <div style={{ fontSize: '2rem' }}>♟</div>
@@ -83,6 +93,29 @@ export default function DrillView({ puzzles, srsStates, onSolvePuzzle, onStartDr
 
   return (
     <div>
+      {/* Stats row */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-around', textAlign: 'center',
+        marginBottom: 16, padding: '12px 0',
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 12,
+      }}>
+        {[
+          { value: totalPuzzles, label: 'Saved' },
+          { value: drilledCount, label: 'Drilled' },
+          { value: dueCount, label: 'Due', highlight: dueCount > 0 },
+        ].map(({ value, label, highlight }) => (
+          <div key={label}>
+            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: highlight ? 'var(--accent)' : 'var(--text)' }}>
+              {value}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 1 }}>
+              {label}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Drill banner */}
       <div style={{
         background: 'var(--surface)',
@@ -119,7 +152,7 @@ export default function DrillView({ puzzles, srsStates, onSolvePuzzle, onStartDr
             New — {newPuzzles.length} puzzle{newPuzzles.length !== 1 ? 's' : ''}
           </div>
           {newPuzzles.map(p => (
-            <PuzzleCard key={p.id} puzzle={p} srsState={srsMap[p.id]} onSolve={() => onSolvePuzzle?.(p)} />
+            <PuzzleCard key={p.id} puzzle={p} srsState={srsMap[p.id]} onSolve={() => onSolvePuzzle?.(p)} today={today} />
           ))}
         </section>
       )}
@@ -130,7 +163,7 @@ export default function DrillView({ puzzles, srsStates, onSolvePuzzle, onStartDr
             Reviewed — {oldPuzzles.length} puzzle{oldPuzzles.length !== 1 ? 's' : ''}
           </div>
           {oldPuzzles.map(p => (
-            <PuzzleCard key={p.id} puzzle={p} srsState={srsMap[p.id]} onSolve={() => onSolvePuzzle?.(p)} />
+            <PuzzleCard key={p.id} puzzle={p} srsState={srsMap[p.id]} onSolve={() => onSolvePuzzle?.(p)} today={today} />
           ))}
         </section>
       )}

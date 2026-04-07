@@ -126,7 +126,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
   const [notes, setNotes] = useState(puzzle.notes ?? '');
   const [notesSaved, setNotesSaved] = useState(false);
 
-  const boardSize = Math.min(360, window.innerWidth - 32, window.innerHeight * 0.42);
+  const boardSize = Math.min(460, window.innerWidth - 32);
 
   // Highlight best move squares after reveal
   let squareStyles = {};
@@ -197,7 +197,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
           <div style={{ fontWeight: 700, fontSize: '1rem' }}>Find the best move</div>
           {srsState && (
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Ease {srsState.easeFactor?.toFixed(1)} · Rep {srsState.repetitions}
+              Review #{(srsState.repetitions ?? 0) + 1}
             </div>
           )}
         </div>

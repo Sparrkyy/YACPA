@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 
@@ -59,7 +59,7 @@ function uciToSan(uci, fen) {
 }
 
 function CandidateCard({ candidate, onApprove, onDismiss, onOpenAnalysis }) {
-  const boardSize = Math.min(280, window.innerWidth - 48);
+  const boardSize = Math.min(180, window.innerWidth - 48);
   const [notes, setNotes] = useState('');
 
   return (
@@ -163,7 +163,30 @@ function CandidateCard({ candidate, onApprove, onDismiss, onOpenAnalysis }) {
 }
 
 export default function ReviewView({ candidates, onApprove, onDismiss, onOpenAnalysis }) {
-  if (!candidates || candidates.length === 0) {
+  const [pendingDismiss, setPendingDismiss] = useState(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  function handleDismiss(candidate) {
+    clearTimeout(timerRef.current);
+    setPendingDismiss(candidate);
+    timerRef.current = setTimeout(() => {
+      onDismiss(candidate);
+      setPendingDismiss(null);
+    }, 4000);
+  }
+
+  function handleUndo() {
+    clearTimeout(timerRef.current);
+    setPendingDismiss(null);
+  }
+
+  const visible = (candidates ?? []).filter(c =>
+    !pendingDismiss || !(c.fen === pendingDismiss.fen && c.playerMove === pendingDismiss.playerMove)
+  );
+
+  if (visible.length === 0 && !pendingDismiss) {
     return (
       <div className="empty-state">
         <div style={{ fontSize: '2rem' }}>♟</div>
@@ -173,19 +196,43 @@ export default function ReviewView({ candidates, onApprove, onDismiss, onOpenAna
   }
 
   return (
-    <div>
-      <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-secondary)', marginBottom: 12 }}>
-        {candidates.length} candidate{candidates.length !== 1 ? 's' : ''} to review
-      </div>
-      {candidates.map((c, i) => (
-        <CandidateCard
-          key={`${c.fen}-${c.playerMove}-${i}`}
-          candidate={c}
-          onApprove={onApprove}
-          onDismiss={onDismiss}
-          onOpenAnalysis={onOpenAnalysis}
-        />
-      ))}
+    <div style={{ position: 'relative' }}>
+      {visible.length > 0 && (
+        <>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-secondary)', marginBottom: 12 }}>
+            {visible.length} candidate{visible.length !== 1 ? 's' : ''} to review
+          </div>
+          {visible.map((c, i) => (
+            <CandidateCard
+              key={`${c.fen}-${c.playerMove}-${i}`}
+              candidate={c}
+              onApprove={onApprove}
+              onDismiss={handleDismiss}
+              onOpenAnalysis={onOpenAnalysis}
+            />
+          ))}
+        </>
+      )}
+
+      {/* Undo snackbar */}
+      {pendingDismiss && (
+        <div style={{
+          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 10, padding: '10px 16px',
+          display: 'flex', alignItems: 'center', gap: 16,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.3)', zIndex: 200,
+          whiteSpace: 'nowrap',
+        }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Candidate dismissed</span>
+          <button
+            onClick={handleUndo}
+            style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </div>
   );
 }

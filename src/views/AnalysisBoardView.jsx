@@ -58,8 +58,8 @@ function evalLabel(whiteEval, isMate) {
 
 // --- Component ---
 
-export default function AnalysisBoardView({ fen, playerColor, onClose }) {
-  const boardSize = Math.min(360, window.innerWidth - 32, window.innerHeight * 0.42);
+export default function AnalysisBoardView({ fen, playerColor, bestLine: initialBestLine, onClose }) {
+  const boardSize = Math.min(460, window.innerWidth - 32);
 
   // Chess instance — mutated in place
   const [chess] = useState(() => { const c = new Chess(); c.load(fen); return c; });
@@ -82,7 +82,11 @@ export default function AnalysisBoardView({ fen, playerColor, onClose }) {
   const engineRef = useRef(null);
   const seqRef = useRef(0);
   const debounceRef = useRef(null);
-  const [engineResult, setEngineResult] = useState(null);
+  const [engineResult, setEngineResult] = useState(() => {
+    if (!initialBestLine) return null;
+    const firstMove = initialBestLine.trim().split(/\s+/)[0] ?? null;
+    return { bestMove: firstMove, bestLine: initialBestLine, eval: 0, isMate: false };
+  });
   const [analyzing, setAnalyzing] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
 

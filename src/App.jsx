@@ -57,6 +57,9 @@ function IconSettings() {
 }
 
 function DrillSummary({ stats, onDone }) {
+  const total = stats?.total ?? 0;
+  const correct = stats?.correct ?? 0;
+  const gaveUp = stats?.gaveUp ?? 0;
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 100,
@@ -66,9 +69,15 @@ function DrillSummary({ stats, onDone }) {
       <div style={{ fontSize: '3rem' }}>✓</div>
       <div>
         <div style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 8 }}>Session complete</div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-          You drilled {stats?.total ?? 0} puzzle{stats?.total !== 1 ? 's' : ''}
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: 8 }}>
+          You drilled {total} puzzle{total !== 1 ? 's' : ''}
         </div>
+        {total > 0 && (
+          <div style={{ display: 'flex', gap: 20, justifyContent: 'center', fontSize: '0.85rem' }}>
+            <span style={{ color: '#34c759', fontWeight: 600 }}>✓ {correct} correct</span>
+            <span style={{ color: 'var(--text-secondary)' }}>✗ {gaveUp} gave up</span>
+          </div>
+        )}
       </div>
       <button className="btn-accent" style={{ maxWidth: 280 }} onClick={onDone}>
         Back to puzzles
@@ -89,6 +98,7 @@ export default function App() {
   const [sheetId, setLocalSheetId] = useState('');
   const [activeTab, setActiveTab] = useState('games');
   const [games, setGamesRaw] = useState(null);
+  const [gamesFetchedAt, setGamesFetchedAt] = useState(null);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [darkMode, setDarkMode] = useState(
@@ -177,8 +187,9 @@ export default function App() {
       const savedCache = localStorage.getItem(storageKey('recent_games'));
       const savedState = localStorage.getItem(storageKey('analysis_state'));
       if (savedCache) {
-        const { games: cachedGames } = JSON.parse(savedCache);
+        const { games: cachedGames, fetchedAt } = JSON.parse(savedCache);
         if (Array.isArray(cachedGames)) setGamesRaw(cachedGames);
+        if (fetchedAt) setGamesFetchedAt(fetchedAt);
       }
       if (savedState) setAnalysisState(JSON.parse(savedState));
     } catch {}
@@ -221,6 +232,7 @@ export default function App() {
     setLocalSheetId('');
     setActiveTab('games');
     setGamesRaw(null);
+    setGamesFetchedAt(null);
     setAnalysisState({});
     setPuzzles([]);
     setSrsStatesData([]);
@@ -230,11 +242,13 @@ export default function App() {
   function handleGamesChange(newGames) {
     if (!newGames) { setGamesRaw(null); return; }
     const sorted = [...newGames].sort((a, b) => (b.endTime ?? 0) - (a.endTime ?? 0));
+    const now = Date.now();
     setGamesRaw(sorted);
+    setGamesFetchedAt(now);
     try {
       localStorage.setItem(
         storageKey('recent_games'),
-        JSON.stringify({ games: sorted, fetchedAt: Date.now() })
+        JSON.stringify({ games: sorted, fetchedAt: now })
       );
     } catch {}
   }
@@ -275,14 +289,18 @@ export default function App() {
 
     const engine = new StockfishEngine();
     try {
-      await engine.init();
+      const initTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Engine timed out after 60s')), 60_000)
+      );
+      await Promise.race([engine.init(), initTimeout]);
     } catch (e) {
       // If engine fails to init, mark all as error
       setAnalysisState(prev => {
         const next = { ...prev };
-        for (const id of gameIds) next[id] = { status: 'error', progress: null, candidates: [], errorMsg: 'Failed to start Stockfish' };
+        for (const id of gameIds) next[id] = { status: 'error', progress: null, candidates: [], errorMsg: e.message ?? 'Failed to start engine' };
         return next;
       });
+      engine.destroy();
       return;
     }
 
@@ -362,7 +380,7 @@ export default function App() {
     });
     if (due.length === 0) return;
     setDrillQueue(due.map(p => p.id));
-    setDrillSessionStats({ total: due.length, completed: 0 });
+    setDrillSessionStats({ total: due.length, correct: 0, gaveUp: 0 });
   }
 
   function handleEndDrillSession() {
@@ -396,7 +414,11 @@ export default function App() {
       console.error('Failed to save SRS:', e);
     }
     if (drillQueue !== null) {
-      setDrillSessionStats(prev => ({ ...prev, completed: prev.completed + 1 }));
+      setDrillSessionStats(prev => ({
+        ...prev,
+        correct: prev.correct + (quality >= 3 ? 1 : 0),
+        gaveUp: prev.gaveUp + (quality < 3 ? 1 : 0),
+      }));
       setDrillQueue(prev => prev.slice(1));
     } else {
       setSolvingPuzzle(null);
@@ -532,6 +554,7 @@ export default function App() {
               username={username}
               onUsernameChange={handleUsernameChange}
               games={games}
+              gamesFetchedAt={gamesFetchedAt}
               onGamesChange={handleGamesChange}
               analysisState={analysisState}
               onAnalyzeGames={handleAnalyzeGames}

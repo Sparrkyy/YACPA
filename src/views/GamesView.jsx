@@ -2,7 +2,16 @@ import { useState } from 'react';
 import { getRecentGames } from '../data/chesscomApi';
 import GameCard from '../components/GameCard';
 
-export default function GamesView({ username, onUsernameChange, games, onGamesChange, analysisState, onAnalyzeGames, onClearAnalysis }) {
+function timeAgo(ts) {
+  const mins = Math.floor((Date.now() - ts) / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+export default function GamesView({ username, onUsernameChange, games, gamesFetchedAt, onGamesChange, analysisState, onAnalyzeGames, onClearAnalysis }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(new Set());
@@ -115,6 +124,11 @@ export default function GamesView({ username, onUsernameChange, games, onGamesCh
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               {games.length} recent game{games.length !== 1 ? 's' : ''}
+              {gamesFetchedAt && (
+                <span style={{ marginLeft: 6, color: 'var(--text-secondary)', opacity: 0.7 }}>
+                  · fetched {timeAgo(gamesFetchedAt)}
+                </span>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {analyzableGames.length > 0 && (
