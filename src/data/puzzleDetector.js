@@ -38,15 +38,24 @@ export async function analyzeGame(game, engine, onProgress) {
   // for each move — no need to manually replay the game
   const moves = chess.history({ verbose: true });
 
-  const playerMoves = moves.filter(m => {
-    const side = m.before.split(' ')[1]; // 'w' or 'b' from the FEN
+  const totalPlayerMoves = moves.filter(m => {
+    const side = m.before.split(' ')[1];
     return (side === 'w') === game.playerIsWhite;
-  });
+  }).length;
 
   const candidates = [];
   let analyzed = 0;
+  let prevOpponentMove = null; // tracks the last opponent move before each player move
 
-  for (const move of playerMoves) {
+  for (const move of moves) {
+    const side = move.before.split(' ')[1]; // 'w' or 'b' from the FEN
+    const isPlayerMove = (side === 'w') === game.playerIsWhite;
+
+    if (!isPlayerMove) {
+      prevOpponentMove = move;
+      continue;
+    }
+
     const fenBefore = move.before;
     const fenAfter = move.after;
 
@@ -58,6 +67,10 @@ export async function analyzeGame(game, engine, onProgress) {
     const playerMoveUci = move.from + move.to + (move.promotion ?? '');
 
     if (drop > 10 && before.bestMove && before.bestMove !== playerMoveUci) {
+      const prevFen = prevOpponentMove?.before ?? null;
+      const opponentMove = prevOpponentMove
+        ? prevOpponentMove.from + prevOpponentMove.to + (prevOpponentMove.promotion ?? '')
+        : null;
       candidates.push({
         fen: fenBefore,
         playerMove: playerMoveUci,
@@ -70,11 +83,13 @@ export async function analyzeGame(game, engine, onProgress) {
         playerColor: game.playerIsWhite ? 'white' : 'black',
         theme: classifyTheme(drop, before.isMate),
         gameUrl: game.url,
+        prevFen,
+        opponentMove,
       });
     }
 
     analyzed++;
-    onProgress({ current: analyzed, total: playerMoves.length || 1 });
+    onProgress({ current: analyzed, total: totalPlayerMoves || 1 });
   }
 
   return candidates;

@@ -363,6 +363,8 @@ export default function App() {
         evalAfter: candidate.evalAfter,
         theme: candidate.theme,
         notes,
+        prevFen: candidate.prevFen ?? '',
+        opponentMove: candidate.opponentMove ?? '',
         createdAt: new Date().toISOString(),
       });
       setPuzzles(prev => [...prev, newPuzzle]);

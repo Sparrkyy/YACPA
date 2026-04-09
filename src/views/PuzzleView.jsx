@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 
@@ -126,10 +126,45 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
   const [notes, setNotes] = useState(puzzle.notes ?? '');
   const [notesSaved, setNotesSaved] = useState(false);
 
+  // Opponent last-move animation
+  const [displayFen, setDisplayFen] = useState(puzzle.prevFen || puzzle.fen);
+  const [opponentHighlight, setOpponentHighlight] = useState({});
+  const [animating, setAnimating] = useState(!!puzzle.prevFen);
+
+  useEffect(() => {
+    if (!puzzle.prevFen || !puzzle.opponentMove) {
+      setDisplayFen(puzzle.fen);
+      setOpponentHighlight({});
+      setAnimating(false);
+      return;
+    }
+    setDisplayFen(puzzle.prevFen);
+    setOpponentHighlight({});
+    setAnimating(true);
+
+    const t1 = setTimeout(() => {
+      const from = puzzle.opponentMove.slice(0, 2);
+      const to = puzzle.opponentMove.slice(2, 4);
+      setDisplayFen(puzzle.fen);
+      setOpponentHighlight({
+        [from]: { background: 'rgba(255, 170, 0, 0.45)' },
+        [to]:   { background: 'rgba(255, 170, 0, 0.55)' },
+      });
+
+      const t2 = setTimeout(() => {
+        setOpponentHighlight({});
+        setAnimating(false);
+      }, 900);
+      return () => clearTimeout(t2);
+    }, 600);
+
+    return () => clearTimeout(t1);
+  }, [puzzle.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const boardSize = Math.min(460, window.innerWidth - 32);
 
-  // Highlight best move squares after reveal
-  let squareStyles = {};
+  // Highlight best move squares after reveal; opponent highlight shows during animation
+  let squareStyles = { ...opponentHighlight };
   if (phase !== 'input') {
     const { from, to } = uciToSquares(puzzle.bestMove);
     if (from) squareStyles[from] = { background: 'rgba(52,199,89,0.5)' };
@@ -214,7 +249,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
       {/* Board */}
       <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 16px 8px' }}>
         <Chessboard options={{
-          position: puzzle.fen,
+          position: displayFen,
           boardOrientation: puzzle.playerColor,
           allowDragging: false,
           boardStyle: { width: boardSize, maxWidth: '100%' },
@@ -238,7 +273,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
         </div>
       )}
 
-      {phase === 'input' && (
+      {phase === 'input' && !animating && (
         <ChessKeypad
           value={input}
           onChange={v => { setInput(v); setErrorMsg(''); }}

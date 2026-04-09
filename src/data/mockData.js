@@ -10,7 +10,7 @@ const KEYS = {
 };
 
 const HEADERS = {
-  puzzles: ['id', 'gameUrl', 'fen', 'playerColor', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'theme', 'createdAt', 'notes'],
+  puzzles: ['id', 'gameUrl', 'fen', 'playerColor', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'theme', 'createdAt', 'notes', 'prevFen', 'opponentMove'],
   srs: ['id', 'puzzleId', 'easeFactor', 'interval', 'repetitions', 'nextReview'],
   reviews: ['id', 'puzzleId', 'result', 'reviewedAt'],
   settings: ['key', 'value'],
@@ -132,12 +132,15 @@ export function rowToPuzzle(row) {
     theme: row[8],
     createdAt: row[9],
     notes: row[10] ?? '',
+    prevFen: row[11] ?? '',
+    opponentMove: row[12] ?? '',
   };
 }
 
 export function puzzleToRow(p) {
   return [p.id, p.gameUrl, p.fen, p.playerColor, p.bestMove, p.bestLine,
-          p.evalBefore, p.evalAfter, p.theme, p.createdAt, p.notes ?? ''];
+          p.evalBefore, p.evalAfter, p.theme, p.createdAt, p.notes ?? '',
+          p.prevFen ?? '', p.opponentMove ?? ''];
 }
 
 export async function updatePuzzle(puzzleId, updates) {

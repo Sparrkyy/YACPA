@@ -107,10 +107,10 @@ async function _createNewSheet() {
 
   // Write headers for each tab
   await Promise.all([
-    fetch(`${BASE_SHEETS}/${id}/values/Puzzles!A1:K1?valueInputOption=RAW`, {
+    fetch(`${BASE_SHEETS}/${id}/values/Puzzles!A1:M1?valueInputOption=RAW`, {
       method: 'PUT',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [['id', 'gameUrl', 'fen', 'playerColor', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'theme', 'createdAt', 'notes']] }),
+      body: JSON.stringify({ values: [['id', 'gameUrl', 'fen', 'playerColor', 'bestMove', 'bestLine', 'evalBefore', 'evalAfter', 'theme', 'createdAt', 'notes', 'prevFen', 'opponentMove']] }),
     }),
     fetch(`${BASE_SHEETS}/${id}/values/Reviews!A1:D1?valueInputOption=RAW`, {
       method: 'PUT',
@@ -164,15 +164,17 @@ export function rowToPuzzle(row) {
     theme: row[8] ?? '',
     createdAt: row[9] ?? '',
     notes: row[10] ?? '',
+    prevFen: row[11] ?? '',
+    opponentMove: row[12] ?? '',
   };
 }
 
 export function puzzleToRow(p) {
-  return [p.id, p.gameUrl, p.fen, p.playerColor, p.bestMove, p.bestLine, p.evalBefore, p.evalAfter, p.theme, p.createdAt, p.notes ?? ''];
+  return [p.id, p.gameUrl, p.fen, p.playerColor, p.bestMove, p.bestLine, p.evalBefore, p.evalAfter, p.theme, p.createdAt, p.notes ?? '', p.prevFen ?? '', p.opponentMove ?? ''];
 }
 
 export async function getPuzzles() {
-  const data = await sheetsGet('/values/Puzzles!A:K', 'loading puzzles');
+  const data = await sheetsGet('/values/Puzzles!A:M', 'loading puzzles');
   const rows = data.values ?? [];
   return rows.slice(1).map(rowToPuzzle).filter(p => p.id);
 }
@@ -183,7 +185,7 @@ export async function addPuzzle(puzzle) {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const newPuzzle = { ...puzzle, id };
   await sheetsPost(
-    '/values/Puzzles!A:K:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+    '/values/Puzzles!A:M:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
     { values: [puzzleToRow(newPuzzle)] },
     'saving puzzle'
   );
@@ -191,14 +193,14 @@ export async function addPuzzle(puzzle) {
 }
 
 export async function updatePuzzle(puzzleId, updates) {
-  const data = await sheetsGet('/values/Puzzles!A:K', 'updating puzzle');
+  const data = await sheetsGet('/values/Puzzles!A:M', 'updating puzzle');
   const rows = data.values ?? [];
   const rowIndex = rows.findIndex((r, i) => i > 0 && r[0] === puzzleId);
   if (rowIndex === -1) return;
   const merged = { ...rowToPuzzle(rows[rowIndex]), ...updates };
   const sheetRow = rowIndex + 1;
   await sheetsPut(
-    `/values/Puzzles!A${sheetRow}:K${sheetRow}?valueInputOption=RAW`,
+    `/values/Puzzles!A${sheetRow}:M${sheetRow}?valueInputOption=RAW`,
     { values: [puzzleToRow(merged)] },
     'updating puzzle'
   );
