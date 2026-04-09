@@ -344,10 +344,10 @@ export default function App() {
     engine.destroy();
   }
 
-  // Update notes on a saved puzzle
-  async function handleUpdatePuzzleNotes(puzzleId, notes) {
-    await updatePuzzle(puzzleId, { notes });
-    setPuzzles(prev => prev.map(p => p.id === puzzleId ? { ...p, notes } : p));
+  // Update arbitrary fields on a saved puzzle (notes, prevFen, opponentMove, etc.)
+  async function handleUpdatePuzzle(puzzleId, updates) {
+    await updatePuzzle(puzzleId, updates);
+    setPuzzles(prev => prev.map(p => p.id === puzzleId ? { ...p, ...updates } : p));
   }
 
   // Approve a candidate → save as puzzle
@@ -521,7 +521,8 @@ export default function App() {
                   onBack={handleEndDrillSession}
                   drillProgress={drillSessionStats}
                   onOpenAnalysis={setAnalysisBoard}
-                  onUpdateNotes={handleUpdatePuzzleNotes}
+                  onUpdatePuzzle={handleUpdatePuzzle}
+                  username={username}
                 />
               ) : null;
             })()
@@ -535,7 +536,8 @@ export default function App() {
           onRate={handleRatePuzzle}
           onBack={() => setSolvingPuzzle(null)}
           onOpenAnalysis={setAnalysisBoard}
-          onUpdateNotes={handleUpdatePuzzleNotes}
+          onUpdatePuzzle={handleUpdatePuzzle}
+          username={username}
         />
       )}
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
+import { fetchPrevMoveForPuzzle } from '../data/chesscomApi';
 
 const RATING_BUTTONS = [
   { label: 'Too easy', quality: 5, color: '#34c759' },
@@ -119,7 +120,7 @@ function formatLine(sans, fen) {
   return tokens.join(' ');
 }
 
-export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProgress, onOpenAnalysis, onUpdateNotes }) {
+export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProgress, onOpenAnalysis, onUpdatePuzzle, username }) {
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState('input'); // 'input' | 'correct' | 'incorrect' | 'gave_up'
   const [errorMsg, setErrorMsg] = useState('');
@@ -159,6 +160,19 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
     }, 600);
 
     return () => clearTimeout(t1);
+  }, [puzzle.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Background migration for old puzzles: fetch prevFen/opponentMove from Chess.com and persist.
+  // No animation on this viewing — next time the puzzle appears it'll animate normally.
+  useEffect(() => {
+    if (puzzle.prevFen || !puzzle.gameUrl || !username || !onUpdatePuzzle) return;
+    fetchPrevMoveForPuzzle(puzzle, username)
+      .then(({ prevFen, opponentMove }) => {
+        if (prevFen && opponentMove) {
+          onUpdatePuzzle(puzzle.id, { prevFen, opponentMove });
+        }
+      })
+      .catch(() => {});
   }, [puzzle.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const boardSize = Math.min(460, window.innerWidth - 32);
@@ -386,7 +400,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
       </div>
 
       {/* Notes — shown after answer is revealed, pre-filled from puzzle.notes */}
-      {phase !== 'input' && onUpdateNotes && (
+      {phase !== 'input' && onUpdatePuzzle && (
         <div style={{ padding: '0 16px 12px' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
             Notes
@@ -405,7 +419,7 @@ export default function PuzzleView({ puzzle, srsState, onRate, onBack, drillProg
           />
           <button
             onClick={async () => {
-              await onUpdateNotes(puzzle.id, notes);
+              await onUpdatePuzzle(puzzle.id, { notes });
               setNotesSaved(true);
             }}
             style={{

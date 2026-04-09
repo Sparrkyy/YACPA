@@ -1,4 +1,5 @@
 // Chess.com public API — adapted from GuillaumeSD/Chesskit
+import { Chess } from 'chess.js';
 
 function getPaddedNumber(n) {
   return String(n).padStart(2, '0');
@@ -105,6 +106,58 @@ function formatTimeControl(raw) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return m ? `${h}h${getPaddedNumber(m)}m${increment}` : `${h}h${increment}`;
+}
+
+// For old puzzles that were created before prevFen/opponentMove were stored,
+// fetch the game PGN and reconstruct the opponent's last move from the position.
+// Returns { prevFen, opponentMove } or {} if not found.
+export async function fetchPrevMoveForPuzzle(puzzle, username) {
+  if (!puzzle.gameUrl || !puzzle.createdAt || !username || !puzzle.fen) return {};
+
+  const trimmed = username.trim().toLowerCase();
+  const headers = { 'User-Agent': 'ChessPuzzleTrainer/1.0' };
+  const createdDate = new Date(puzzle.createdAt);
+  const y = createdDate.getUTCFullYear();
+  const m = createdDate.getUTCMonth() + 1;
+
+  // Try the creation month first, then the previous month (game may predate puzzle creation)
+  const monthsToTry = [
+    { y, m },
+    { y: m === 1 ? y - 1 : y, m: m === 1 ? 12 : m - 1 },
+  ];
+
+  let foundGame = null;
+  for (const { y: yr, m: mo } of monthsToTry) {
+    try {
+      const res = await fetch(
+        `https://api.chess.com/pub/player/${trimmed}/games/${yr}/${getPaddedNumber(mo)}`,
+        { headers }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      const game = (data?.games ?? []).find(g => g.url === puzzle.gameUrl);
+      if (game?.pgn) { foundGame = game; break; }
+    } catch { continue; }
+  }
+
+  if (!foundGame) return {};
+
+  const chess = new Chess();
+  try { chess.loadPgn(foundGame.pgn); } catch { return {}; }
+
+  const moves = chess.history({ verbose: true });
+  for (let i = 0; i < moves.length; i++) {
+    if (moves[i].before === puzzle.fen) {
+      if (i === 0) return {};
+      const opp = moves[i - 1];
+      return {
+        prevFen: opp.before,
+        opponentMove: opp.from + opp.to + (opp.promotion ?? ''),
+      };
+    }
+  }
+
+  return {};
 }
 
 export async function getPlayerAvatar(username) {
