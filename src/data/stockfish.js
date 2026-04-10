@@ -1,5 +1,6 @@
 // Stockfish WASM engine wrapper — single-threaded build
-// Loads stockfish-nnue-16-single.js as a Web Worker via UCI protocol
+// Loads stockfish-18-lite-single.js as a Web Worker via UCI protocol
+// SF18 lite has the NNUE network baked into the WASM (~7MB), no separate weights file needed
 
 function parseInfoLine(line) {
   if (!line) return { eval: 0, isMate: false, bestLine: '' };
@@ -34,16 +35,14 @@ export class StockfishEngine {
 
   async init() {
     const base = import.meta.env.BASE_URL;
-    const wasmUrl = encodeURIComponent(`${base}stockfish-nnue-16-single.wasm`);
-    const workerUrl = `${base}stockfish-nnue-16-single.js#${wasmUrl},worker`;
+    const wasmUrl = encodeURIComponent(`${base}stockfish-18-lite-single.wasm`);
+    const workerUrl = `${base}stockfish-18-lite-single.js#${wasmUrl},worker`;
 
     this.worker = new Worker(workerUrl);
     this.worker.onmessage = (e) => this._onMessage(e.data);
 
     await this._cmd('uci', line => line === 'uciok');
-    // Disable NNUE to avoid fetching the 39MB weights file;
-    // classical eval is sufficient for blunder detection
-    this.worker.postMessage('setoption name Use NNUE value false');
+    // NNUE is embedded in the lite WASM — no setoption needed, it's always on
     await this._cmd('isready', line => line === 'readyok');
     this.ready = true;
   }

@@ -6,9 +6,9 @@ import { copyFileSync, existsSync } from 'fs'
 const copyStockfish = {
   name: 'copy-stockfish',
   buildStart() {
-    const base = './node_modules/stockfish/src/'
+    const base = './node_modules/stockfish/bin/'
     const dest = './public/'
-    const files = ['stockfish-nnue-16-single.js', 'stockfish-nnue-16-single.wasm']
+    const files = ['stockfish-18-lite-single.js', 'stockfish-18-lite-single.wasm']
     for (const f of files) {
       if (existsSync(base + f)) copyFileSync(base + f, dest + f)
     }
@@ -39,6 +39,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,wasm}'],
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB — covers SF18 lite WASM (7MB)
       },
     }),
   ],
