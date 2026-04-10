@@ -8,7 +8,8 @@ const copyStockfish = {
   buildStart() {
     const base = './node_modules/stockfish/bin/'
     const dest = './public/'
-    const files = ['stockfish-18-lite-single.js', 'stockfish-18-lite-single.wasm']
+    // Only copy the JS loader (~20KB). WASM (~7MB) is fetched from CDN at runtime.
+    const files = ['stockfish-18-lite-single.js']
     for (const f of files) {
       if (existsSync(base + f)) copyFileSync(base + f, dest + f)
     }
@@ -39,7 +40,17 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,wasm}'],
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB — covers SF18 lite WASM (7MB)
+        runtimeCaching: [
+          {
+            // Cache the CDN-hosted WASM so the engine works offline after first load
+            urlPattern: /unpkg\.com\/stockfish/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'stockfish-wasm',
+              expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
+        ],
       },
     }),
   ],

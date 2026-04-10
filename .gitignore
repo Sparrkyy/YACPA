@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Engine binaries — downloaded from CDN at runtime, not committed
+public/*.wasm
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

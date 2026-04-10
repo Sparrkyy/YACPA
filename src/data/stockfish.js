@@ -35,7 +35,9 @@ export class StockfishEngine {
 
   async init() {
     const base = import.meta.env.BASE_URL;
-    const wasmUrl = encodeURIComponent(`${base}stockfish-18-lite-single.wasm`);
+    // WASM loaded from CDN — not committed to git (7MB binary).
+    // Browser caches it after first download; PWA runtime cache handles offline.
+    const wasmUrl = encodeURIComponent('https://unpkg.com/stockfish@18.0.7/bin/stockfish-18-lite-single.wasm');
     const workerUrl = `${base}stockfish-18-lite-single.js#${wasmUrl},worker`;
 
     this.worker = new Worker(workerUrl);
