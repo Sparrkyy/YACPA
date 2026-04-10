@@ -35,10 +35,10 @@ export class StockfishEngine {
 
   async init() {
     const base = import.meta.env.BASE_URL;
-    // WASM loaded from CDN — not committed to git (7MB binary).
-    // Browser caches it after first download; PWA runtime cache handles offline.
-    const wasmUrl = encodeURIComponent('https://unpkg.com/stockfish@18.0.7/bin/stockfish-18-lite-single.wasm');
-    const workerUrl = `${base}stockfish-18-lite-single.js#${wasmUrl},worker`;
+    // SF18 worker detection: typeof onmessage !== "undefined" && typeof window === "undefined"
+    // kicks in automatically for Web Workers. The WASM is downloaded from CDN at build time
+    // and served locally — no hash trick needed (hash trick causes SF18 short-circuit bug).
+    const workerUrl = `${base}stockfish-18-lite-single.js`;
 
     this.worker = new Worker(workerUrl);
     this.worker.onmessage = (e) => this._onMessage(e.data);

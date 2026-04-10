@@ -205,3 +205,7 @@ export async function updateCandidateDecision(candidateId, decision) {
 export async function ensureCandidatesSheet() {
   // No-op in mock mode — localStorage tables are lazily created by load()
 }
+
+export async function ensureAnalyzedGamesSheet() {}
+export async function getAnalyzedGameIds() { return new Set(); }
+export async function markGameAnalyzed() {}

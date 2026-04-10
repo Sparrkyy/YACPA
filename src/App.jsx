@@ -5,7 +5,7 @@ import {
   initAuth, signOut, tryRestoreSession, hasStoredSession,
   trySilentSignIn, signIn, getUserSub, isSignedIn,
 } from './data/auth';
-import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, updatePuzzle, getSrsStates, addSrsState, updateSrsState, addReview, addCandidates, updateCandidateDecision, ensureCandidatesSheet } from './data/api';
+import { DEV_MODE, setSheetId, setApiErrorHandler, getSettings, setSetting, getPuzzles, addPuzzle, updatePuzzle, getSrsStates, addSrsState, updateSrsState, addReview, addCandidates, updateCandidateDecision, ensureCandidatesSheet, ensureAnalyzedGamesSheet, getAnalyzedGameIds, markGameAnalyzed } from './data/api';
 import { computeNextSrs } from './data/srs';
 import { setLoadingListener } from './data/loadingTracker';
 import { StockfishEngine } from './data/stockfish';
@@ -181,7 +181,8 @@ export default function App() {
     setSheetId(id);
     setLocalSheetId(id);
     setUsername(uname);
-    // Restore recent games cache and analysis state
+    // Restore recent games cache and analysis state from localStorage
+    let savedAnalysisState = {};
     try {
       localStorage.removeItem(storageKey('analyzed_games')); // migrate: delete old unbounded key
       const savedCache = localStorage.getItem(storageKey('recent_games'));
@@ -191,18 +192,28 @@ export default function App() {
         if (Array.isArray(cachedGames)) setGamesRaw(cachedGames);
         if (fetchedAt) setGamesFetchedAt(fetchedAt);
       }
-      if (savedState) setAnalysisState(JSON.parse(savedState));
+      if (savedState) savedAnalysisState = JSON.parse(savedState);
     } catch {}
-    // Load persisted puzzles and SRS data
+    // Load persisted puzzles, SRS data, and analyzed game IDs from Sheets
     try {
-      const [p, s] = await Promise.all([getPuzzles(), getSrsStates()]);
+      const [p, s, analyzedIds] = await Promise.all([getPuzzles(), getSrsStates(), getAnalyzedGameIds()]);
       setPuzzles(p);
       setSrsStatesData(s);
+      // Merge sheet-analyzed IDs with local state — games analyzed on another device show as done
+      const merged = { ...savedAnalysisState };
+      for (const gameId of analyzedIds) {
+        if (!merged[gameId]) {
+          merged[gameId] = { status: 'done', candidates: [], progress: null, errorMsg: null };
+        }
+      }
+      setAnalysisState(merged);
     } catch {
-      // Non-fatal: puzzles just start empty
+      // Non-fatal: fall back to localStorage-only state
+      setAnalysisState(savedAnalysisState);
     }
-    // Ensure Candidates tab exists (no-op if already present)
+    // Ensure auxiliary tabs exist (no-op if already present)
     ensureCandidatesSheet().catch(() => {});
+    ensureAnalyzedGamesSheet().catch(() => {});
   }
 
   function handleSheetReady(id) {
@@ -333,6 +344,7 @@ export default function App() {
           persistAnalyzed(next);
           return next;
         });
+        markGameAnalyzed(gameId).catch(() => {});
       } catch (e) {
         setAnalysisState(prev => ({
           ...prev,

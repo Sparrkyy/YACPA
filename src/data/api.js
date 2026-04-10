@@ -28,4 +28,7 @@ export const {
   addCandidates,
   updateCandidateDecision,
   ensureCandidatesSheet,
+  ensureAnalyzedGamesSheet,
+  getAnalyzedGameIds,
+  markGameAnalyzed,
 } = api;

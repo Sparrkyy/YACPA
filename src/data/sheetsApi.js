@@ -354,6 +354,54 @@ export async function updateCandidateDecision(candidateId, decision) {
   );
 }
 
+// --- AnalyzedGames (cross-device sync) ---
+
+// Ensure the AnalyzedGames tab exists; if not, create it with headers.
+export async function ensureAnalyzedGamesSheet() {
+  try {
+    const res = await fetch(
+      `${getBase()}/values/AnalyzedGames!A1`,
+      { headers: authHeaders() }
+    );
+    if (res.ok) return;
+    if (res.status !== 400 && res.status !== 404) return;
+  } catch {
+    return;
+  }
+  try {
+    await fetch(`${getBase()}:batchUpdate`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: 'AnalyzedGames' } } }] }),
+    });
+    await sheetsPut(
+      '/values/AnalyzedGames!A1:B1?valueInputOption=RAW',
+      { values: [['gameId', 'analyzedAt']] },
+      'creating AnalyzedGames tab'
+    );
+  } catch { /* non-fatal */ }
+}
+
+// Returns a Set of game IDs that have been analyzed (across all devices).
+export async function getAnalyzedGameIds() {
+  try {
+    const data = await sheetsGet('/values/AnalyzedGames!A:A', 'loading analyzed games');
+    const rows = data.values ?? [];
+    return new Set(rows.slice(1).map(r => r[0]).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+// Records a game ID as analyzed in the sheet.
+export async function markGameAnalyzed(gameId) {
+  await sheetsPost(
+    '/values/AnalyzedGames!A:B:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',
+    { values: [[gameId, new Date().toISOString()]] },
+    'marking game analyzed'
+  );
+}
+
 // Ensure the Candidates tab exists; if not, create it with headers.
 // Safe to call on every app load — no-op if tab already present.
 export async function ensureCandidatesSheet() {

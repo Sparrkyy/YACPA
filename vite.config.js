@@ -1,17 +1,28 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { copyFileSync, existsSync } from 'fs'
+import { copyFileSync, existsSync, writeFileSync } from 'fs'
+
+const WASM_CDN = 'https://unpkg.com/stockfish@18.0.7/bin/stockfish-18-lite-single.wasm'
 
 const copyStockfish = {
   name: 'copy-stockfish',
-  buildStart() {
+  async buildStart() {
     const base = './node_modules/stockfish/bin/'
     const dest = './public/'
-    // Only copy the JS loader (~20KB). WASM (~7MB) is fetched from CDN at runtime.
+    // Copy the JS loader (~20KB)
     const files = ['stockfish-18-lite-single.js']
     for (const f of files) {
       if (existsSync(base + f)) copyFileSync(base + f, dest + f)
+    }
+    // Download WASM from CDN if not already present (~7MB, not committed to git)
+    const wasmDest = dest + 'stockfish-18-lite-single.wasm'
+    if (!existsSync(wasmDest)) {
+      console.log('[stockfish] Downloading WASM from CDN...')
+      const res = await fetch(WASM_CDN)
+      if (!res.ok) throw new Error(`Failed to fetch WASM: ${res.status}`)
+      writeFileSync(wasmDest, Buffer.from(await res.arrayBuffer()))
+      console.log('[stockfish] WASM downloaded.')
     }
   },
 }
@@ -40,17 +51,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,wasm}'],
-        runtimeCaching: [
-          {
-            // Cache the CDN-hosted WASM so the engine works offline after first load
-            urlPattern: /unpkg\.com\/stockfish/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'stockfish-wasm',
-              expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
-        ],
+        // WASM is 7.3MB — raise the default 2MB precache limit
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
     }),
   ],
